@@ -1,0 +1,5 @@
+{
+  "name": "Nexus CRM",
+  "description": "A simple dark-themed CRM with Dashboard, Kanban, Form, and List views, featuring AI mockup generation.",
+  "requestFramePermissions": []
+}

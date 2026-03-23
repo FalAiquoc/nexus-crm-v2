@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-bg-main: var(--bg-main);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-card: var(--bg-card);
+  --color-text-main: var(--text-main);
+  --color-text-sec: var(--text-sec);
+  --color-border-color: var(--border-color);
+  --color-hover-color: var(--hover-color);
+  --color-grad-start: var(--grad-start);
+  --color-grad-end: var(--grad-end);
+}
+
+:root {
+  --bg-main: #0A0A0A;
+  --bg-sidebar: #121212;
+  --bg-card: #1A1A1A;
+  --primary: #D4AF37;
+  --secondary: #F3E5AB;
+  --text-main: #F0EAD6;
+  --text-sec: #9A9A9A;
+  --border-color: #2A2A2A;
+  --hover-color: #D4AF37;
+  --grad-start: #B8860B;
+  --grad-end: #D4AF37;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Utility to completely hide scrollbar but keep functionality */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
