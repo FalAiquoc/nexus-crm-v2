@@ -4,7 +4,7 @@ services:
     ports:
       - "4000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:Seguro2026Sup%40base%21@supabase-db:5432/nexus_crm
+      - DATABASE_URL=postgresql://postgres:Seguro2026Sup%40base%21@172.19.0.3:5432/nexus_crm
       - NODE_ENV=production
       - PORT=3000
     labels:

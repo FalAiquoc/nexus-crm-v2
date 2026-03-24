@@ -90,9 +90,8 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS stages (
         id TEXT PRIMARY KEY,
         pipeline_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        sort_order INTEGER NOT NULL,
-        required_fields TEXT,
+        name TEXT,
+        sort_order INTEGER,
         FOREIGN KEY (pipeline_id) REFERENCES pipelines(id)
       );
 
@@ -104,9 +103,9 @@ async function initDb() {
         stage_id TEXT NOT NULL,
         owner_id TEXT,
         probability INTEGER DEFAULT 0,
-        expected_close_date DATETIME,
+        expected_close_date TIMESTAMP,
         custom_fields TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (lead_id) REFERENCES leads(id),
         FOREIGN KEY (stage_id) REFERENCES stages(id),
         FOREIGN KEY (owner_id) REFERENCES users(id)
@@ -114,31 +113,30 @@ async function initDb() {
 
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS appointments (
         id TEXT PRIMARY KEY,
         client_id TEXT NOT NULL,
-        user_id TEXT,
-        title TEXT NOT NULL,
-        start_time DATETIME NOT NULL,
-        end_time DATETIME NOT NULL,
-        status TEXT DEFAULT 'Agendado',
+        user_id TEXT NOT NULL,
+        title TEXT,
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP NOT NULL,
         notes TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (client_id) REFERENCES leads(id),
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
 
       CREATE TABLE IF NOT EXISTS plans (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
+        name TEXT,
         description TEXT,
-        price REAL NOT NULL,
+        price DECIMAL(10,2),
         billing_interval TEXT DEFAULT 'monthly',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS subscriptions (
@@ -146,10 +144,10 @@ async function initDb() {
         client_id TEXT NOT NULL,
         plan_id TEXT NOT NULL,
         status TEXT DEFAULT 'active',
-        next_billing_date DATETIME NOT NULL,
-        last_billing_date DATETIME,
+        next_billing_date TIMESTAMP NOT NULL,
+        last_billing_date TIMESTAMP,
         auto_renew INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (client_id) REFERENCES leads(id),
         FOREIGN KEY (plan_id) REFERENCES plans(id)
       );
