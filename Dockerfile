@@ -14,7 +14,7 @@ COPY package*.json ./
 RUN apk add --no-cache python3 make g++
 
 # Instalar TODAS as dependências primeiro (incluindo Vite/TS para o build funcionar)
-RUN npm ci
+RUN npm install
 
 # Copiar código fonte
 COPY . .
