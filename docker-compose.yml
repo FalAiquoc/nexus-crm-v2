@@ -1,0 +1,15 @@
+services:
+  nexus-crm:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@supabase-db:5432/nexus_crm
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - supabase_default
+
+networks:
+  supabase_default:
+    external: true
