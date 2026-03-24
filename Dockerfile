@@ -1,26 +1,27 @@
 # Dockerfile para Nexus CRM v2 (Homologado para Node.js v18)
 FROM node:18-alpine
 
-# Definir variáveis de ambiente
-ENV NODE_ENV=production
-
 # Criar diretório de trabalho
 WORKDIR /app
 
 # Copiar package files
 COPY package*.json ./
 
-# Instalar dependências ignorando lockfiles desatualizados
+# Instalar TODAS a dependências ignorando lockfiles desatualizados (inclui Vite/TypeScript)
 RUN npm install --legacy-peer-deps
 
 # Copiar código fonte
 COPY . .
 
-# Build do frontend (Vite) e backend (Server)
+# Build do frontend (Vite) e backend (Server) - PRECISA das devDependencies
 RUN npm run build
 
 # Opcional: remover as devDependencies após o build para diminuir o tamanho da imagem
-# RUN npm prune --production
+# Usar legacy-peer-deps para nao quebrar a arvore neste estagio
+RUN npm prune --production --legacy-peer-deps
+
+# SÓ AGORA definimos variáveis de ambiente como produção (para node rodar otimizado)
+ENV NODE_ENV=production
 
 # Expor porta do servidor
 EXPOSE 3000
