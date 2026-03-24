@@ -1,10 +1,9 @@
-FROM node:22-bullseye-slim
+FROM node:22-bookworm-slim
 
-# Instalar dependências de build no Debian
-RUN apt-get update && apt-get install -y \
+# Instalar dependências de build no Debian (livrando de extras para evitar timeout de rede)
+RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     python3 \
     build-essential \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Definir variáveis de ambiente
