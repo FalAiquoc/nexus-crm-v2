@@ -19,6 +19,8 @@ async function buildServer() {
       external: [
         'pg',
         'express',
+        'esbuild',
+        'vite',
         'dotenv',
         'bcryptjs',
         'jsonwebtoken',
