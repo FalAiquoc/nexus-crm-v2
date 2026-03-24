@@ -30,9 +30,6 @@ async function buildServer() {
         'react-dom',
         '@google/genai'
       ],
-      banner: {
-        js: 'import { createRequire } from "module"; const require = createRequire(import.meta.url);',
-      },
     });
     console.log('✅ Server built successfully to dist/server.cjs');
   } catch (err) {
