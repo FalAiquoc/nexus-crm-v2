@@ -7,6 +7,12 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@supabase-db:5432/nexus_crm
       - NODE_ENV=production
       - PORT=3000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nexus-crm.rule=Host(`dvadvoga.com.br`) || Host(`crm.dvadvoga.com.br`)"
+      - "traefik.http.routers.nexus-crm.entrypoints=websecure"
+      - "traefik.http.routers.nexus-crm.tls.certresolver=letsencrypt"
+      - "traefik.http.services.nexus-crm.loadbalancer.server.port=3000"
     networks:
       - supabase_default
 
