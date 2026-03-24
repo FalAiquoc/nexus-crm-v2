@@ -1,5 +1,11 @@
-# Dockerfile para Nexus CRM v2
-FROM node:22-alpine
+FROM node:22-bullseye-slim
+
+# Instalar dependências de build no Debian
+RUN apt-get update && apt-get install -y \
+    python3 \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Definir variáveis de ambiente
 ENV NODE_ENV=production
@@ -10,11 +16,8 @@ WORKDIR /app
 # Copiar package files
 COPY package*.json ./
 
-# Instalar dependências de build (Python e GCC são necessários para compilar o better-sqlite3 no Alpine)
-RUN apk add --no-cache python3 make g++ libc6-compat
-
-# Instalar TODAS as dependências primeiro (incluindo Vite/TS para o build funcionar)
-RUN npm install
+# Instalar TODAS as dependências (para o build do Vite funcionar)
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
