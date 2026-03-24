@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import db, { initializeDatabase } from "./server/db";
 import { comparePassword, generateToken, verifyToken } from "./server/auth";
@@ -262,7 +261,8 @@ async function startServer() {
 
   // VITE MIDDLEWARE (Frontend)
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    const { createServer } = await import('vite');
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
