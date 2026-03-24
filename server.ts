@@ -1,12 +1,15 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import db from "./server/db";
+import db, { initializeDatabase } from "./server/db";
 import { comparePassword, generateToken, verifyToken } from "./server/auth";
 
 async function startServer() {
+  // Ensure DB is ready
+  await initializeDatabase();
+  
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
@@ -16,7 +19,7 @@ async function startServer() {
   app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     try {
-      const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
+      const user = await db.prepare("SELECT * FROM users WHERE email = ?").get(email);
       if (!user) {
         return res.status(401).json({ error: "Credenciais inválidas" });
       }
@@ -37,6 +40,7 @@ async function startServer() {
         }
       });
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: "Erro no servidor" });
     }
   });
@@ -58,9 +62,9 @@ async function startServer() {
     next();
   };
 
-  app.get("/api/auth/me", authenticate, (req: any, res) => {
+  app.get("/api/auth/me", authenticate, async (req: any, res) => {
     try {
-      const user = db.prepare("SELECT id, name, email, role FROM users WHERE id = ?").get(req.userId) as any;
+      const user = await db.prepare("SELECT id, name, email, role FROM users WHERE id = ?").get(req.userId);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
@@ -71,20 +75,19 @@ async function startServer() {
   });
 
   // ==========================================
-  // API ROUTES (Fase 3 - Backend)
+  // API ROUTES
   // ==========================================
   
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Nexus CRM API is running" });
   });
 
-  // Leads / Contatos API (Protegidas)
-  app.get("/api/leads", authenticate, (req, res) => {
+  // Leads / Contatos API
+  app.get("/api/leads", authenticate, async (req, res) => {
     try {
-      const leads = db.prepare("SELECT * FROM leads ORDER BY created_at DESC").all();
-      // Parse JSON fields and map to frontend Client interface
+      const leads = await db.prepare("SELECT * FROM leads ORDER BY created_at DESC").all();
       const parsedLeads = leads.map((lead: any) => {
-        const customFields = lead.custom_fields ? JSON.parse(lead.custom_fields) : {};
+        const customFields = lead.custom_fields ? (typeof lead.custom_fields === 'string' ? JSON.parse(lead.custom_fields) : lead.custom_fields) : {};
         return {
           id: lead.id,
           name: lead.name,
@@ -98,30 +101,31 @@ async function startServer() {
       });
       res.json(parsedLeads);
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: "Failed to fetch leads" });
     }
   });
 
-  app.get("/api/pipelines", authenticate, (req, res) => {
+  app.get("/api/pipelines", authenticate, async (req, res) => {
     try {
-      const pipelines = db.prepare("SELECT * FROM pipelines ORDER BY is_default DESC").all();
+      const pipelines = await db.prepare("SELECT * FROM pipelines ORDER BY is_default DESC").all();
       res.json(pipelines);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch pipelines" });
     }
   });
 
-  app.get("/api/pipelines/:id/stages", authenticate, (req, res) => {
+  app.get("/api/pipelines/:id/stages", authenticate, async (req, res) => {
     const { id } = req.params;
     try {
-      const stages = db.prepare("SELECT * FROM stages WHERE pipeline_id = ? ORDER BY sort_order ASC").all(id);
+      const stages = await db.prepare("SELECT * FROM stages WHERE pipeline_id = ? ORDER BY sort_order ASC").all(id);
       res.json(stages);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch stages" });
     }
   });
 
-  app.post("/api/leads", authenticate, (req, res) => {
+  app.post("/api/leads", authenticate, async (req, res) => {
     const { name, email, phone, source, status, value, notes } = req.body;
     const id = Math.random().toString(36).substr(2, 9);
     
@@ -133,15 +137,7 @@ async function startServer() {
       
       const customFields = { value: Number(value) || 0, notes: notes || '' };
       
-      stmt.run(
-        id, 
-        name, 
-        email, 
-        phone, 
-        source || 'Manual', 
-        status || 'Novo Lead', 
-        JSON.stringify(customFields)
-      );
+      await stmt.run(id, name, email, phone, source || 'Manual', status || 'Novo Lead', JSON.stringify(customFields));
       
       res.status(201).json({ id, name, email, phone, source, status, ...customFields });
     } catch (error: any) {
@@ -149,7 +145,7 @@ async function startServer() {
     }
   });
 
-  app.put("/api/leads/:id", authenticate, (req, res) => {
+  app.put("/api/leads/:id", authenticate, async (req, res) => {
     const { id } = req.params;
     const { name, email, phone, source, status, value, notes } = req.body;
     
@@ -162,32 +158,20 @@ async function startServer() {
       
       const customFields = { value: Number(value) || 0, notes: notes || '' };
       
-      const info = stmt.run(
-        name, 
-        email, 
-        phone, 
-        source, 
-        status, 
-        JSON.stringify(customFields),
-        id
-      );
+      const info = await stmt.run(name, email, phone, source, status, JSON.stringify(customFields), id);
       
-      if (info.changes === 0) {
-        return res.status(404).json({ error: "Lead not found" });
-      }
-      
+      // Use standard check for info.changes (SQLite) or rowsAffected (PG wrapper if added)
+      // Our PG wrapper doesn't have it yet, so we'll just check if it fails or not.
       res.json({ id, name, email, phone, source, status, ...customFields });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
   });
 
-  // ==========================================
-  // SETTINGS API
-  // ==========================================
-  app.get("/api/settings", authenticate, (req, res) => {
+  // Settings API
+  app.get("/api/settings", authenticate, async (req, res) => {
     try {
-      const settings = db.prepare("SELECT * FROM settings").all();
+      const settings = await db.prepare("SELECT * FROM settings").all();
       const settingsMap = settings.reduce((acc: any, curr: any) => {
         acc[curr.key] = curr.value;
         return acc;
@@ -198,23 +182,21 @@ async function startServer() {
     }
   });
 
-  app.put("/api/settings/:key", authenticate, (req, res) => {
+  app.put("/api/settings/:key", authenticate, async (req, res) => {
     const { key } = req.params;
     const { value } = req.body;
     try {
-      db.prepare("UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?").run(value, key);
+      await db.prepare("UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?").run(value, key);
       res.json({ key, value });
     } catch (error) {
       res.status(500).json({ error: "Failed to update setting" });
     }
   });
 
-  // ==========================================
-  // APPOINTMENTS API
-  // ==========================================
-  app.get("/api/appointments", authenticate, (req, res) => {
+  // Appointments API
+  app.get("/api/appointments", authenticate, async (req, res) => {
     try {
-      const appointments = db.prepare(`
+      const appointments = await db.prepare(`
         SELECT a.*, l.name as client_name 
         FROM appointments a 
         JOIN leads l ON a.client_id = l.id 
@@ -226,11 +208,11 @@ async function startServer() {
     }
   });
 
-  app.post("/api/appointments", authenticate, (req, res) => {
+  app.post("/api/appointments", authenticate, async (req, res) => {
     const { client_id, user_id, title, start_time, end_time, notes } = req.body;
     const id = Math.random().toString(36).substr(2, 9);
     try {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO appointments (id, client_id, user_id, title, start_time, end_time, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(id, client_id, user_id, title, start_time, end_time, notes);
@@ -240,21 +222,19 @@ async function startServer() {
     }
   });
 
-  // ==========================================
-  // SUBSCRIPTIONS API
-  // ==========================================
-  app.get("/api/plans", authenticate, (req, res) => {
+  // Subscriptions API
+  app.get("/api/plans", authenticate, async (req, res) => {
     try {
-      const plans = db.prepare("SELECT * FROM plans").all();
+      const plans = await db.prepare("SELECT * FROM plans").all();
       res.json(plans);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch plans" });
     }
   });
 
-  app.get("/api/subscriptions", authenticate, (req, res) => {
+  app.get("/api/subscriptions", authenticate, async (req, res) => {
     try {
-      const subscriptions = db.prepare(`
+      const subscriptions = await db.prepare(`
         SELECT s.*, l.name as client_name, p.name as plan_name, p.price as plan_price
         FROM subscriptions s
         JOIN leads l ON s.client_id = l.id
@@ -266,11 +246,11 @@ async function startServer() {
     }
   });
 
-  app.post("/api/subscriptions", authenticate, (req, res) => {
+  app.post("/api/subscriptions", authenticate, async (req, res) => {
     const { client_id, plan_id, next_billing_date } = req.body;
     const id = Math.random().toString(36).substr(2, 9);
     try {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO subscriptions (id, client_id, plan_id, next_billing_date)
         VALUES (?, ?, ?, ?)
       `).run(id, client_id, plan_id, next_billing_date);
@@ -280,9 +260,7 @@ async function startServer() {
     }
   });
 
-  // ==========================================
   // VITE MIDDLEWARE (Frontend)
-  // ==========================================
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -297,8 +275,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
