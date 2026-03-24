@@ -53,7 +53,7 @@ async function initDb() {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'vendedor',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS companies (
@@ -63,7 +63,7 @@ async function initDb() {
         segment TEXT,
         size TEXT,
         address TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS leads (
@@ -76,7 +76,7 @@ async function initDb() {
         status TEXT DEFAULT 'Novo Lead',
         company_id TEXT,
         custom_fields TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (company_id) REFERENCES companies(id)
       );
 
@@ -84,7 +84,7 @@ async function initDb() {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         is_default INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS stages (
