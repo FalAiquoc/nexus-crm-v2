@@ -1,20 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-@import "tailwindcss";
-
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-primary: var(--primary);
-  --color-secondary: var(--secondary);
-  --color-bg-main: var(--bg-main);
-  --color-bg-sidebar: var(--bg-sidebar);
-  --color-bg-card: var(--bg-card);
-  --color-text-main: var(--text-main);
-  --color-text-sec: var(--text-sec);
-  --color-border-color: var(--border-color);
-  --color-hover-color: var(--hover-color);
-  --color-grad-start: var(--grad-start);
-  --color-grad-end: var(--grad-end);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --bg-main: #0A0A0A;

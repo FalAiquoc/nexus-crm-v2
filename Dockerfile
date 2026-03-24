@@ -10,8 +10,8 @@ WORKDIR /app
 # Copiar package files
 COPY package*.json ./
 
-# Instalar dependências usando as versões estritas do package.json (e do package-lock)
-RUN npm ci
+# Instalar dependências ignorando lockfiles desatualizados
+RUN npm install --legacy-peer-deps
 
 # Copiar código fonte
 COPY . .
