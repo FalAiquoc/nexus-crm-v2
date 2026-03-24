@@ -14,11 +14,7 @@ const dbConfig: any = {
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres',
 };
 
-// Em produção no Dokploy, permitimos SSL sem verificação estrita
-if (process.env.NODE_ENV === 'production') {
-  dbConfig.ssl = { rejectUnauthorized: false };
-}
-
+// Deixamos o controle de SSL por conta da string DATABASE_URL (importante para Supabase Self-Hosted)
 const pool = new Pool(dbConfig);
 
 // Helper objects to maintain compatibility with the previous codebase that used sync SQLite APIs wrapped in async
