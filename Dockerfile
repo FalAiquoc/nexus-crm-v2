@@ -1,5 +1,5 @@
 # Dockerfile para Nexus CRM v2
-FROM node:18-alpine
+FROM node:22-alpine
 
 # Definir variáveis de ambiente
 ENV NODE_ENV=production
@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependências de build (Python e GCC são necessários para compilar o better-sqlite3 no Alpine)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ libc6-compat
 
 # Instalar TODAS as dependências primeiro (incluindo Vite/TS para o build funcionar)
 RUN npm install
