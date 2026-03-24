@@ -2,9 +2,9 @@ services:
   nexus-crm:
     build: .
     ports:
-      - "3000:3000"
+      - "4000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@supabase-db:5432/nexus_crm
+      - DATABASE_URL=postgresql://postgres:Seguro2026Sup@base!@supabase-db:5432/nexus_crm
       - NODE_ENV=production
       - PORT=3000
     labels:
@@ -15,6 +15,8 @@ services:
       - "traefik.http.services.nexus-crm.loadbalancer.server.port=3000"
     networks:
       - supabase_default
+    depends_on:
+      - supabase-db
 
 networks:
   supabase_default:
