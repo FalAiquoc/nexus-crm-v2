@@ -1,10 +1,5 @@
-FROM node:22-bookworm-slim
-
-# Instalar dependências de build no Debian (livrando de extras para evitar timeout de rede)
-RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
-    python3 \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Dockerfile para Nexus CRM v2 (Homologado para Node.js v18)
+FROM node:18-alpine
 
 # Definir variáveis de ambiente
 ENV NODE_ENV=production
@@ -15,7 +10,7 @@ WORKDIR /app
 # Copiar package files
 COPY package*.json ./
 
-# Instalar TODAS as dependências (para o build do Vite funcionar)
+# Instalar dependências usando as versões estritas do package.json (e do package-lock)
 RUN npm ci
 
 # Copiar código fonte

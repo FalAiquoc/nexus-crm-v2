@@ -1,79 +1,55 @@
-import Database from 'better-sqlite3';
 import { Pool } from 'pg';
-import fs from 'fs';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Determine which DB to use
-const isProd = process.env.NODE_ENV === 'production' || process.env.DATABASE_URL;
+console.log('🔗 Conectando ao PostgreSQL (Supabase/Dokploy)');
 
-let db: any;
-
-if (isProd && process.env.DATABASE_URL) {
-  console.log(' utilizando PostgreSQL (Supabase/Dokploy)');
-  db = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
-
-  // Helper objects to maintain compatibility with the synchronous better-sqlite3 API
-  db.prepare = (sql: string) => ({
-    get: async (...params: any[]) => {
-      const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
-      const res = await db.query(pgSql, params);
-      return res.rows[0];
-    },
-    all: async (...params: any[]) => {
-      const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
-      const res = await db.query(pgSql, params);
-      return res.rows;
-    },
-    run: async (...params: any[]) => {
-      const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
-      return await db.query(pgSql, params);
-    }
-  });
-  
-  db.exec = async (sql: string) => {
-    return await db.query(sql);
-  };
-
-} else {
-  console.log(' utilizando SQLite local');
-  const dataDir = path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir);
-  }
-  const sqlite = new Database(path.join(dataDir, 'crm.db'));
-  
-  // Wrap SQLite to be async-compatible with the PG interface
-  db = {
-    prepare: (sql: string) => ({
-      get: async (...params: any[]) => sqlite.prepare(sql).get(...params),
-      all: async (...params: any[]) => sqlite.prepare(sql).all(...params),
-      run: async (...params: any[]) => sqlite.prepare(sql).run(...params)
-    }),
-    exec: async (sql: string) => sqlite.exec(sql),
-    query: async (sql: string, params: any[]) => {
-       const stmt = sqlite.prepare(sql);
-       if (sql.trim().toLowerCase().startsWith('select')) {
-         return { rows: stmt.all(...(params || [])) };
-       } else {
-         return stmt.run(...(params || []));
-       }
-    }
-  };
+if (!process.env.DATABASE_URL) {
+  console.warn('⚠️ AVISO: DATABASE_URL não definida! O backend precisará dessa variável para se conectar ao banco.');
 }
 
-// Initialization Logic
+const dbConfig: any = {
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres',
+};
+
+// Em produção no Dokploy, permitimos SSL sem verificação estrita
+if (process.env.NODE_ENV === 'production') {
+  dbConfig.ssl = { rejectUnauthorized: false };
+}
+
+const pool = new Pool(dbConfig);
+
+// Helper objects to maintain compatibility with the previous codebase that used sync SQLite APIs wrapped in async
+const db: any = {};
+db.query = async (sql: string, params: any[]) => pool.query(sql, params);
+
+db.prepare = (sql: string) => ({
+  get: async (...params: any[]) => {
+    const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+    const res = await pool.query(pgSql, params);
+    return res.rows[0];
+  },
+  all: async (...params: any[]) => {
+    const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+    const res = await pool.query(pgSql, params);
+    return res.rows;
+  },
+  run: async (...params: any[]) => {
+    const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+    return await pool.query(pgSql, params);
+  }
+});
+
+db.exec = async (sql: string) => {
+  return await pool.query(sql);
+};
+
+// Initialization Logic (Postgres)
 async function initDb() {
-  if (!isProd) {
-    // SQLite Schema Init (Synchronous executed via async wrapper)
+  try {
+    // Schema Init (Executado via async wrapper para o Postgres)
     await db.exec(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -245,6 +221,8 @@ async function initDb() {
       await insertStage.run('s5', 'p1', 'Negociação', 5);
       await insertStage.run('s6', 'p1', 'Fechado', 6);
     }
+  } catch (err) {
+    console.error('Erro ao inicializar o banco:', err);
   }
 }
 

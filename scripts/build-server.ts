@@ -14,10 +14,9 @@ async function buildServer() {
       bundle: true,
       platform: 'node',
       target: 'node18',
-      outfile: join(__dirname, '../dist/server.js'),
-      format: 'esm',
+      outfile: join(__dirname, '../dist/server.cjs'),
+      format: 'cjs',
       external: [
-        'better-sqlite3',
         'pg',
         'express',
         'dotenv',
@@ -33,7 +32,7 @@ async function buildServer() {
         js: 'import { createRequire } from "module"; const require = createRequire(import.meta.url);',
       },
     });
-    console.log('✅ Server built successfully to dist/server.js');
+    console.log('✅ Server built successfully to dist/server.cjs');
   } catch (err) {
     console.error('❌ Server build failed:', err);
     process.exit(1);
