@@ -17,21 +17,50 @@ const dbConfig: any = {
 // Deixamos o controle de SSL por conta da string DATABASE_URL (importante para PostgreSQL Externo)
 const pool = new Pool(dbConfig);
 
-// Helper objects to maintain compatibility with the previous codebase that used sync SQLite APIs wrapped in async
+// Motor de Banco de Dados Profissional (PostgreSQL Native)
 const db: any = {};
-db.query = async (sql: string, params: any[]) => pool.query(sql, params);
+
+db.query = async (sql: string, params: any[] = []) => {
+  try {
+    return await pool.query(sql, params);
+  } catch (err: any) {
+    console.error('❌ ERRO SQL:', { sql, params, error: err.message });
+    throw err;
+  }
+};
 
 db.prepare = (sql: string) => ({
   get: async (...params: any[]) => {
-    const res = await pool.query(sql, params);
-    return res.rows[0];
+    let count = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++count}`);
+    try {
+      const res = await pool.query(pgSql, params);
+      return res.rows[0];
+    } catch (err: any) {
+      console.error('❌ FALHA CRÍTICA NO BANCO (GET):', { original: sql, enviada: pgSql, params, erro: err.message });
+      throw err;
+    }
   },
   all: async (...params: any[]) => {
-    const res = await pool.query(sql, params);
-    return res.rows;
+    let count = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++count}`);
+    try {
+      const res = await pool.query(pgSql, params);
+      return res.rows;
+    } catch (err: any) {
+      console.error('❌ FALHA CRÍTICA NO BANCO (ALL):', { original: sql, enviada: pgSql, params, erro: err.message });
+      throw err;
+    }
   },
   run: async (...params: any[]) => {
-    return await pool.query(sql, params);
+    let count = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++count}`);
+    try {
+      return await pool.query(pgSql, params);
+    } catch (err: any) {
+      console.error('❌ FALHA CRÍTICA NO BANCO (RUN):', { original: sql, enviada: pgSql, params, erro: err.message });
+      throw err;
+    }
   }
 });
 
