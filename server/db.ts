@@ -164,8 +164,13 @@ async function initDb() {
     const userCount = await db.prepare("SELECT COUNT(*) as count FROM users").get();
     if (userCount.count === 0) {
       const hashedPassword = bcrypt.hashSync('admin123', 10);
+      // Criando Diogo como Administrador Principal
       await db.prepare("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)").run(
-        'admin-1', 'Administrador', 'admin@nexus.com', hashedPassword, 'admin'
+        'admin-diogo', 'Diogo Admin', 'diogo@dvadvoga.com.br', hashedPassword, 'admin'
+      );
+      // Mantendo o admin genérico para compatibilidade
+      await db.prepare("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)").run(
+        'admin-1', 'Administrador Nexus', 'admin@nexus.com', hashedPassword, 'admin'
       );
     }
     
@@ -199,6 +204,9 @@ async function initDb() {
         INSERT INTO leads (id, name, email, phone, source, status, custom_fields)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
+      // Adicionando Dyjann como Cliente Advogado
+      await insertLead.run('client-dyjann', 'Dyjann', 'dyjann@dvadvoga.com.br', '(11) 99999-0000', 'Direto', 'Cliente Ativo', JSON.stringify({ cargo: 'Advogado', tipo: 'Cliente' }));
+      
       await insertLead.run('1', 'Ana Silva', 'ana@example.com', '(11) 99999-1111', 'WhatsApp', 'Novo Lead', JSON.stringify({ interesse: 'Plano Anual' }));
       await insertLead.run('2', 'Carlos Santos', 'carlos@example.com', '(11) 98888-2222', 'Instagram', 'Em Contato', JSON.stringify({ cargo: 'CEO' }));
       await insertLead.run('3', 'Marina Costa', 'marina@example.com', '(11) 97777-3333', 'Site', 'Qualificado', JSON.stringify({ empresa: 'Tech Corp' }));

@@ -1,0 +1,179 @@
+# Nexus CRM Supabase Stack (Managed by Antigravity)
+name: supa-v3
+
+services:
+  studio:
+    container_name: supabase-studio
+    image: supabase/studio:2025.01.30
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "http://127.0.0.1:3000/api/profile"]
+      interval: 10s
+    ports:
+      - 54323:3000
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080/
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DEFAULT_ORGANIZATION_NAME: ${DEFAULT_ORGANIZATION_NAME}
+      DEFAULT_PROJECT_NAME: ${DEFAULT_PROJECT_NAME}
+      STUDIO_JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    networks:
+      - default
+
+  kong:
+    container_name: supabase-kong
+    image: kong:3.9.1-ubuntu
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+      - 8443:8443
+    links:
+      - auth:auth
+      - rest:rest
+      - realtime:realtime
+      - storage:storage
+      - meta:meta
+      - functions:functions  
+    volumes:
+      - /home/supabase/docker/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+    entrypoint: /bin/bash
+    command: ["-c", "export KONG_DECLARATIVE_CONFIG=/home/kong/kong.yml && envsubst < /home/kong/temp.yml > /home/kong/kong.yml && /docker-entrypoint.sh kong docker-start"]
+    networks:
+      - default
+
+  auth:
+    container_name: supabase-auth
+    image: supabase/gotrue:v2.164.0
+    restart: unless-stopped
+    environment:
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      REGION: local
+    networks:
+      - default
+
+  rest:
+    container_name: supabase-rest
+    image: postgrest/postgrest:v12.2.0
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgresql://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - default
+
+  realtime:
+    container_name: realtime-dev.supabase-realtime
+    image: supabase/realtime:v2.33.56
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      DB_HOST: ${POSTGRES_HOST}
+      DB_PORT: ${POSTGRES_PORT}
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      HOSTNAME: localhost
+      REPLICATION_MODE: RLS
+      JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      REGION: local
+    networks:
+      - default
+
+  meta:
+    container_name: supabase-meta
+    image: supabase/postgres-meta:v0.84.2
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: ${POSTGRES_HOST}
+      PG_META_DB_PORT: ${POSTGRES_PORT}
+      PG_META_DB_NAME: ${POSTGRES_DB}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_META_DB_SSL_MODE: disable
+    networks:
+      - default
+
+  storage:
+    container_name: supabase-storage
+    image: supabase/storage-api:v1.1.1
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      PUBLIC_URL: ${SUPABASE_URL}/storage/v1
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - /home/supabase/docker/volumes/storage:/var/lib/storage:z
+    networks:
+      - default
+
+  functions:
+    container_name: supabase-edge-functions
+    image: supabase/edge-runtime:v1.64.1
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+      VERIFY_JWT: "false"
+    volumes:
+      - /home/supabase/docker/volumes/functions:/home/deno/functions:Z
+    networks:
+      - default
+
+  db:
+    container_name: supabase-db
+    image: supabase/postgres:15.8.1.001
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - /home/supabase/docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/00-realtime.sql:ro,z
+      - /home/supabase/docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/migrations/02-roles.sql:ro,z
+      - /home/supabase/docker/volumes/db/jwt.sql:/docker-entrypoint-initdb.d/migrations/03-jwt.sql:ro,z
+      - /home/supabase/docker/volumes/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,z
+      - /home/supabase/docker/volumes/db/data:/var/lib/postgresql/data:z
+    networks:
+      - default
+
+  supabase-mcp:
+    container_name: supabase-mcp
+    image: ghcr.io/metorial/mcp-container--supabase-community--supabase-mcp--mcp-server-supabase:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+    networks:
+      - default
+
+networks:
+  default:
+    name: supa-v3_default

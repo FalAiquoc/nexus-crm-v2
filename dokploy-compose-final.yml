@@ -1,0 +1,213 @@
+# Nexus CRM Supabase Stack (CEO EDITION v9 - UNIQUE PORT MAPPING)
+version: '3.8'
+
+services:
+  studio:
+    image: supabase/studio:2026.03.16-sha-5528817
+    env_file:
+      - .env
+    ports:
+      - "54323:3000" # Mapeamento Host 54323 -> Container 3000
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080/
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION}
+      DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT}
+      STUDIO_JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
+    networks:
+      - default
+      - dokploy-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.supa-studio-v9.rule=Host(`studio.dvadvoga.com.br`)"
+      - "traefik.http.routers.supa-studio-v9.entrypoints=websecure"
+      - "traefik.http.routers.supa-studio-v9.tls=true"
+      - "traefik.http.routers.supa-studio-v9.tls.certresolver=letsencrypt"
+      - "traefik.http.services.supa-studio-v9.loadbalancer.server.port=3000"
+      - "traefik.docker.network=dokploy-network"
+
+  kong:
+    image: kong/kong:3.9.1
+    env_file:
+      - .env
+    ports:
+      - "8000:8000" # API Gateway principal
+      - "8443:8443"
+    volumes:
+      - /home/supabase/docker/volumes/api/kong_fixed.yml:/home/kong/kong.yml:ro
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.supa-api-v9.rule=Host(`api.dvadvoga.com.br`)"
+      - "traefik.http.routers.supa-api-v9.entrypoints=websecure"
+      - "traefik.http.routers.supa-api-v9.tls=true"
+      - "traefik.http.routers.supa-api-v9.tls.certresolver=letsencrypt"
+      - "traefik.http.services.supa-api-v9.loadbalancer.server.port=8000"
+      - "traefik.docker.network=dokploy-network"
+
+  db:
+    image: supabase/postgres:15.8.1.085
+    env_file:
+      - .env
+    ports:
+      - "5432:5432" # Banco de dados acessível na 5432 externa (se desejado)
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - /home/supabase/docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/00-realtime.sql:ro
+      - /home/supabase/docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/migrations/02-roles.sql:ro
+      - /home/supabase/docker/volumes/db/jwt.sql:/docker-entrypoint-initdb.d/migrations/03-jwt.sql:ro
+      - /home/supabase/docker/volumes/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - /home/supabase/docker/volumes/db/data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth:
+    image: supabase/gotrue:v2.186.0
+    env_file:
+      - .env
+    ports:
+      - "9999:9999" # Servidor Auth na 9999
+    environment:
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres?sslmode=disable
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_SITE_URL: ${SITE_URL}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+      GOTRUE_EXTERNAL_API_URL: ${API_EXTERNAL_URL}
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+
+  rest:
+    image: postgrest/postgrest:v12.2.0
+    env_file:
+      - .env
+    ports:
+      - "3000:3000" # REST API na 3000 externa
+    environment:
+      PGRST_DB_URI: postgresql://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
+      PGRST_DB_ANON_ROLE: anon
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+
+  realtime:
+    image: supabase/realtime:v2.76.5
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: postgres
+      JWT_SECRET: ${JWT_SECRET}
+      REPLICATION_MODE: RLS
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      PORT: 4000
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+
+  meta:
+    image: supabase/postgres-meta:v0.95.2
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    environment:
+      PG_META_DB_HOST: db
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_META_DB_USER: supabase_admin
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+
+  storage:
+    image: supabase/storage-api:v1.44.2
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      REGION: ${REGION}
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      STORAGE_BACKEND: file
+    volumes:
+      - /home/supabase/docker/volumes/storage:/var/lib/storage
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+
+  functions:
+    image: supabase/edge-runtime:v1.71.2
+    env_file:
+      - .env
+    # Mapeamento porta 9000
+    ports:
+      - "9000:9000"
+    command:
+      - start
+      - --main-service
+      - /home/deno/functions/main
+      - --policy
+      - per_worker
+    environment:
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+      JWT_SECRET: ${JWT_SECRET}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+    volumes:
+      - /home/supabase/docker/volumes/functions:/home/deno/functions
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  default:
+    name: supa-v3_default
+  dokploy-network:
+    external: true

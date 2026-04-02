@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Hexagon, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Hexagon, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LoginProps {
@@ -11,6 +11,7 @@ export function Login({ onLogin }: LoginProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,13 +86,20 @@ export function Login({ onLogin }: LoginProps) {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-text-sec" size={18} />
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-bg-main border border-border-color rounded-xl pl-10 pr-4 py-3 text-text-main focus:outline-none focus:border-primary transition-colors"
+                  className="w-full bg-bg-main border border-border-color rounded-xl pl-10 pr-12 py-3 text-text-main focus:outline-none focus:border-primary transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-sec hover:text-primary transition-colors p-1"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
