@@ -16,7 +16,7 @@ export function MockupGenerator({ pageName, promptDescription }: MockupGenerator
     setLoading(true);
     setError(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: (import.meta.env.VITE_GEMINI_API_KEY || "") });
       const prompt = `A highly realistic, professional UI/UX mockup of a modern CRM ${pageName}. ${promptDescription}. Elegant premium modern theme, clean background, distinct cards, vibrant accents, minimalist geometric icons, professional and sober. Clean, sleek, dribbble style.`;
       
       const response = await ai.models.generateContent({
