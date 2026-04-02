@@ -4,17 +4,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-console.log('🔗 Conectando ao PostgreSQL (Supabase/Dokploy)');
+console.log('🔗 Conectando ao Banco de Dados Provisório');
 
 if (!process.env.DATABASE_URL) {
-  console.warn('⚠️ AVISO: DATABASE_URL não definida! O backend precisará dessa variável para se conectar ao banco.');
+  console.warn('⚠️ AVISO: DATABASE_URL não definida! Usando fallback para banco-dados-provisorio.');
 }
 
 const dbConfig: any = {
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:senha_provisoria_2026@banco-dados-provisorio:5432/provisorio_db',
 };
 
-// Deixamos o controle de SSL por conta da string DATABASE_URL (importante para Supabase Self-Hosted)
+// Deixamos o controle de SSL por conta da string DATABASE_URL (importante para PostgreSQL Externo)
 const pool = new Pool(dbConfig);
 
 // Helper objects to maintain compatibility with the previous codebase that used sync SQLite APIs wrapped in async
@@ -23,18 +23,15 @@ db.query = async (sql: string, params: any[]) => pool.query(sql, params);
 
 db.prepare = (sql: string) => ({
   get: async (...params: any[]) => {
-    const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
-    const res = await pool.query(pgSql, params);
+    const res = await pool.query(sql, params);
     return res.rows[0];
   },
   all: async (...params: any[]) => {
-    const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
-    const res = await pool.query(pgSql, params);
+    const res = await pool.query(sql, params);
     return res.rows;
   },
   run: async (...params: any[]) => {
-    const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
-    return await pool.query(pgSql, params);
+    return await pool.query(sql, params);
   }
 });
 
@@ -160,29 +157,27 @@ async function initDb() {
       );
     `);
 
-    // Seeds for SQLite
+    // Seeds
     const userCount = await db.prepare("SELECT COUNT(*) as count FROM users").get();
     if (userCount.count === 0) {
       const hashedPassword = bcrypt.hashSync('admin123', 10);
-      // Criando Diogo como Administrador Principal
-      await db.prepare("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)").run(
+      await db.prepare("INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)").run(
         'admin-diogo', 'Diogo Admin', 'diogo@dvadvoga.com.br', hashedPassword, 'admin'
       );
-      // Mantendo o admin genérico para compatibilidade
-      await db.prepare("INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)").run(
+      await db.prepare("INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)").run(
         'admin-1', 'Administrador Nexus', 'admin@nexus.com', hashedPassword, 'admin'
       );
     }
     
     const settingsCount = await db.prepare("SELECT COUNT(*) as count FROM settings").get();
     if (settingsCount.count === 0) {
-      await db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run('workspace_type', 'general');
-      await db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run('business_name', 'Nexus CRM');
+      await db.prepare("INSERT INTO settings (key, value) VALUES ($1, $2)").run('workspace_type', 'general');
+      await db.prepare("INSERT INTO settings (key, value) VALUES ($1, $2)").run('business_name', 'Nexus CRM');
     }
 
     const hoursCount = await db.prepare("SELECT COUNT(*) as count FROM business_hours").get();
     if (hoursCount.count === 0) {
-      const insertHours = db.prepare("INSERT INTO business_hours (day_of_week, open_time, close_time, is_closed) VALUES (?, ?, ?, ?)");
+      const insertHours = db.prepare("INSERT INTO business_hours (day_of_week, open_time, close_time, is_closed) VALUES ($1, $2, $3, $4)");
       for (let i = 0; i < 7; i++) {
         const isWeekend = i === 0 || i === 6;
         await insertHours.run(i, '08:00', '18:00', isWeekend ? 1 : 0);
@@ -191,7 +186,7 @@ async function initDb() {
 
     const plansCount = await db.prepare("SELECT COUNT(*) as count FROM plans").get();
     if (plansCount.count === 0) {
-      const insertPlan = db.prepare("INSERT INTO plans (id, name, description, price, billing_interval) VALUES (?, ?, ?, ?, ?)");
+      const insertPlan = db.prepare("INSERT INTO plans (id, name, description, price, billing_interval) VALUES ($1, $2, $3, $4, $5)");
       await insertPlan.run('p1', 'Corte Simples', 'Acesso a 1 corte por mês.', 50.00, 'monthly');
       await insertPlan.run('p2', 'Clube da Barba', 'Cortes e barba ilimitados.', 120.00, 'monthly');
       await insertPlan.run('p3', 'Plano Executivo', 'Corte, barba e sobrancelha ilimitados + 1 bebida.', 180.00, 'monthly');
@@ -202,9 +197,8 @@ async function initDb() {
     if (leadCount.count === 0) {
       const insertLead = db.prepare(`
         INSERT INTO leads (id, name, email, phone, source, status, custom_fields)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
       `);
-      // Adicionando Dyjann como Cliente Advogado
       await insertLead.run('client-dyjann', 'Dyjann', 'dyjann@dvadvoga.com.br', '(11) 99999-0000', 'Direto', 'Cliente Ativo', JSON.stringify({ cargo: 'Advogado', tipo: 'Cliente' }));
       
       await insertLead.run('1', 'Ana Silva', 'ana@example.com', '(11) 99999-1111', 'WhatsApp', 'Novo Lead', JSON.stringify({ interesse: 'Plano Anual' }));
@@ -214,8 +208,8 @@ async function initDb() {
 
     const pipelineCount = await db.prepare("SELECT COUNT(*) as count FROM pipelines").get();
     if (pipelineCount.count === 0) {
-      await db.prepare("INSERT INTO pipelines (id, name, is_default) VALUES (?, ?, ?)").run('p1', 'Vendas B2B', 1);
-      const insertStage = db.prepare("INSERT INTO stages (id, pipeline_id, name, sort_order) VALUES (?, ?, ?, ?)");
+      await db.prepare("INSERT INTO pipelines (id, name, is_default) VALUES ($1, $2, $3)").run('p1', 'Vendas B2B', 1);
+      const insertStage = db.prepare("INSERT INTO stages (id, pipeline_id, name, sort_order) VALUES ($1, $2, $3, $4)");
       await insertStage.run('s1', 'p1', 'Novo Lead', 1);
       await insertStage.run('s2', 'p1', 'Em Contato', 2);
       await insertStage.run('s3', 'p1', 'Qualificado', 3);
