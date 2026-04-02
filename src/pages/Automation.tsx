@@ -5,7 +5,7 @@ import { Workflow } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
 import * as Icons from 'lucide-react';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const ai = new GoogleGenAI({ apiKey: (import.meta.env.VITE_GEMINI_API_KEY || "") as string });
 
 type StepType = 'trigger' | 'action' | 'condition' | 'delay' | string;
 
