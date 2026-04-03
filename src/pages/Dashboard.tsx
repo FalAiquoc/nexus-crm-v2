@@ -1,62 +1,81 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
-  Users, 
-  TrendingUp, 
-  Target, 
-  DollarSign, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Clock,
-  ChevronRight,
-  Filter,
-  Download,
-  Activity,
-  Loader2
+  Users, TrendingUp, Target, DollarSign, ArrowUpRight, ArrowDownRight,
+  Clock, ChevronRight, Filter, Download, Activity, Loader2, Sparkles, AlertCircle
 } from 'lucide-react';
 import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area,
-  PieChart,
-  Pie,
-  Cell
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
 import { motion } from 'motion/react';
 import { MockupGenerator } from '../components/MockupGenerator';
 import { useApp } from '../context/AppContext';
 
-const COLORS = ['var(--primary)', 'var(--secondary)', 'var(--grad-start)', 'var(--border-color)', 'var(--bg-card)'];
+// Paleta vinculada ao Tema
+const THEME_COLORS = ['var(--primary)', 'var(--secondary)', 'var(--grad-start)', '#94A3B8', '#475569', '#334155'];
 
 interface DashboardProps {
   onSelectClient?: (client: any) => void;
 }
 
+// Custom Tooltips for Premium feel
+const CustomTooltip = ({ active, payload, label, formatter }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-bg-sidebar/95 backdrop-blur-sm border border-border-color p-4 rounded-xl shadow-2xl">
+        <p className="text-text-sec text-xs uppercase tracking-wider mb-2">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex flex-col gap-1">
+            <span className="text-text-main font-bold text-lg" style={{ color: entry.color }}>
+              {formatter ? formatter(entry.value) : entry.value}
+            </span>
+            <span className="text-text-sec text-xs">{entry.name}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export function Dashboard({ onSelectClient }: DashboardProps) {
   const { clients, stages, settings, isLoading } = useApp();
   const workspaceType = settings.workspace_type;
 
-  const totalLeads = clients.length;
-  
-  // Lógica corrigida:
-  // Dinheiro no Gatilho = Leads que NÃO estão em 'Fechado' ou 'Perdido'
-  const openLeadsList = clients.filter(c => c.status !== 'Fechado' && c.status !== 'Perdido');
-  const openValue = openLeadsList.reduce((acc, curr) => acc + curr.value, 0);
+  const memoizedData = useMemo(() => {
+    const list = clients || [];
+    const totalLeads = list.length;
+    
+    const openLeadsList = list.filter(c => c && c.status !== 'Fechado' && c.status !== 'Perdido');
+    const openValue = openLeadsList.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
 
-  // Dinheiro no Bolso = Apenas leads em 'Fechado'
-  const closedLeadsList = clients.filter(c => c.status === 'Fechado');
-  const closedLeadsCount = closedLeadsList.length;
-  const closedValue = closedLeadsList.reduce((acc, curr) => acc + curr.value, 0);
-  
-  const conversionRate = totalLeads > 0 ? ((closedLeadsCount / totalLeads) * 100).toFixed(1) : 0;
+    const closedLeadsList = list.filter(c => c && c.status === 'Fechado');
+    const closedValue = closedLeadsList.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+    
+    const conversionRate = totalLeads > 0 ? ((closedLeadsList.length / totalLeads) * 100).toFixed(1) : 0;
 
-  const funnelData = stages.map(stage => ({
-    name: stage.name,
-    value: clients.filter(c => c.status === stage.name).length
-  }));
+    const funnelData = (stages || []).map(stage => ({
+      name: stage.name,
+      value: list.filter(c => c && c.status === stage.name).length
+    }));
+
+    // Métricas por Origem (ROAI)
+    const sourceMap = list.reduce((acc: any, c) => {
+      const source = c.source || 'Outro';
+      if (!acc[source]) acc[source] = { name: source, count: 0, revenue: 0 };
+      acc[source].count += 1;
+      if (c.status === 'Fechado') {
+        acc[source].revenue += (Number(c.value) || 0);
+      }
+      return acc;
+    }, {});
+    
+    const sourceData = Object.values(sourceMap).sort((a: any, b: any) => b.revenue - a.revenue);
+
+    return { totalLeads, openValue, closedValue, conversionRate, funnelData, sourceData, openLeadsList };
+  }, [clients, stages]);
+
+  const { totalLeads, openValue, closedValue, conversionRate, funnelData, sourceData } = memoizedData;
 
   if (isLoading) {
     return (
@@ -66,9 +85,11 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
     );
   }
 
-  const recentLeads = [...clients].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
+  const recentLeads = [...(clients || [])]
+    .sort((a, b) => String(b.id || '').localeCompare(String(a.id || '')))
+    .slice(0, 5);
 
-  const formatNatalenseValue = (val: number) => {
+  const formatCurrency = (val: number) => {
     if (val === 0) return 'R$ 0';
     if (val < 1000) return `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
     return `R$ ${(val / 1000).toFixed(1)}k`;
@@ -76,34 +97,34 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
 
   const stats = [
     { 
-      label: workspaceType === 'barbershop' ? 'Total de Clientes' : workspaceType === 'law_firm' ? 'Total de Casos' : 'Total de Contatos', 
-      value: totalLeads, 
-      icon: Users, 
-      trend: '+12%', 
+      label: workspaceType === 'law_firm' ? 'Contratos Fechados' : 'Dinheiro no Bolso', 
+      value: formatCurrency(closedValue), 
+      icon: DollarSign, 
+      trend: '+12.5%', 
       trendUp: true,
       color: 'from-primary/20 to-transparent'
     },
     { 
-      label: '% de Sucesso', 
-      value: `${conversionRate}%`, 
-      icon: Target, 
-      trend: '+2.4%', 
-      trendUp: true,
+      label: workspaceType === 'law_firm' ? 'Honorários em Negociação' : 'Dinheiro no Gatilho', 
+      value: formatCurrency(openValue), 
+      icon: TrendingUp, 
+      trend: '-2.4%', 
+      trendUp: false,
       color: 'from-secondary/20 to-transparent'
     },
     { 
-      label: workspaceType === 'law_firm' ? 'Honorários Estimados' : 'Dinheiro no Gatilho', 
-      value: formatNatalenseValue(openValue), 
-      icon: DollarSign, 
-      trend: '-3%', 
-      trendUp: false,
+      label: 'Taxa de Conversão', 
+      value: `${conversionRate}%`, 
+      icon: Target, 
+      trend: '+4.1%', 
+      trendUp: true,
       color: 'from-grad-start/20 to-transparent'
     },
     { 
-      label: workspaceType === 'law_firm' ? 'Honorários Recebidos' : 'Dinheiro no Bolso', 
-      value: formatNatalenseValue(closedValue), 
-      icon: TrendingUp, 
-      trend: '+0.5%', 
+      label: workspaceType === 'barbershop' ? 'Total de Agendamentos' : workspaceType === 'law_firm' ? 'Total de Processos' : 'Leads Gerados', 
+      value: totalLeads, 
+      icon: Users, 
+      trend: '+8%', 
       trendUp: true,
       color: 'from-primary/10 to-transparent'
     },
@@ -111,28 +132,43 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Activity className="text-primary" size={28} />
+      {/* Header Executivo */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-bg-sidebar border border-border-color p-8 rounded-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="p-3 bg-bg-main border border-border-color rounded-xl">
+            <Activity className="text-primary" size={32} />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-text-main tracking-tight">Dashboard Executivo</h1>
-            <p className="text-text-sec mt-1">Visão geral da sua performance de marketing e vendas.</p>
+            <h1 className="text-3xl font-bold text-text-main tracking-tight">Executive Dashboard</h1>
+            <p className="text-text-sec mt-1 text-sm max-w-xl">
+              Bem-vindo ao centro de inteligência do Nexus. Acompanhe a liquidez do funil, métricas de conversão e o ROI dos seus canais de aquisição em tempo real.
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-bg-card border border-border-color rounded-lg text-sm text-text-main hover:bg-border-color transition-colors">
-            <Filter size={16} />
-            Filtrar
+        <div className="flex items-center gap-3 relative z-10 w-full md:w-auto mt-4 md:mt-0">
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-bg-main border border-border-color rounded-xl text-sm font-medium text-text-main hover:bg-border-color transition-colors shadow-sm">
+            <Filter size={16} /> Data
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary rounded-lg text-sm text-bg-main font-semibold hover:bg-secondary transition-colors">
-            <Download size={16} />
-            Exportar
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-primary/10 border border-primary/30 rounded-xl text-sm font-medium text-primary hover:bg-primary hover:text-bg-main hover:border-transparent transition-all shadow-sm group">
+            <Download size={16} className="group-hover:animate-bounce" /> Exportar Relatório
           </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Insight Gerado por IA */}
+      <div className="bg-gradient-to-r from-primary/10 via-transparent to-transparent border-l-4 border-primary rounded-r-xl p-4 flex items-start gap-3">
+        <Sparkles className="text-primary mt-0.5 shrink-0" size={20} />
+        <div>
+          <h4 className="text-sm font-semibold text-text-main">Insight Quantitativo (Alpha Quant)</h4>
+          <p className="text-sm text-text-sec mt-1">
+            Sua taxa de conversão geral é de <strong className="text-text-main">{conversionRate}%</strong>. O canal de aquisição com maior liquidez é 
+            <strong className="text-primary ml-1">{sourceData[0]?.name || 'ND'}</strong>, responsável por grande parte dos <strong>{formatCurrency(closedValue)}</strong> em caixa.
+          </p>
+        </div>
+      </div>
+
+      {/* Métricas de Crescimento (KPI Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
           <motion.div
@@ -140,194 +176,219 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`bg-bg-sidebar p-6 rounded-2xl border border-border-color relative overflow-hidden group`}
+            className="bg-bg-sidebar p-6 rounded-2xl border border-border-color relative overflow-hidden group hover:border-primary/50 transition-colors shadow-sm"
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+            <div className={`absolute -right-12 -top-12 w-32 h-32 bg-gradient-to-br ${stat.color} rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700`} />
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-bg-main rounded-xl border border-border-color text-primary">
-                  <stat.icon size={24} />
+                <div className="p-2.5 bg-bg-main rounded-lg border border-border-color text-primary shadow-inner">
+                  <stat.icon size={20} />
                 </div>
-                <div className={`flex items-center gap-1 text-xs font-medium ${stat.trendUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+                <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md ${stat.trendUp ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
                   {stat.trendUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                   {stat.trend}
                 </div>
               </div>
-              <h3 className="text-text-sec text-sm font-medium">{stat.label}</h3>
-              <p className="text-3xl font-bold text-text-main mt-1">{stat.value}</p>
+              <p className="text-3xl font-black text-text-main mt-1 tracking-tight">{stat.value}</p>
+              <h3 className="text-text-sec text-xs font-semibold uppercase tracking-wider mt-2">{stat.label}</h3>
             </div>
           </motion.div>
         ))}
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Chart - Pipeline Flow */}
-        <div className="lg:col-span-2 bg-bg-sidebar p-8 rounded-2xl border border-border-color">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-semibold text-text-main">Fluxo do Pipeline</h3>
-            <select className="bg-bg-main border border-border-color rounded-lg px-3 py-1.5 text-xs text-text-sec focus:outline-none focus:border-primary">
-              <option>Últimos 30 dias</option>
-              <option>Últimos 90 dias</option>
-            </select>
+      {/* Gráficos Estratégicos */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Gráfico 1: Ring Chart Refinado */}
+        <div className="bg-bg-sidebar p-6 md:p-8 rounded-2xl border border-border-color shadow-sm flex flex-col justify-between relative">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-lg font-bold text-text-main tracking-tight">Distribuição de Funil</h3>
+              <p className="text-xs text-text-sec mt-1">Volume de {workspaceType === 'law_firm' ? 'Processos' : 'Leads'} nas etapas ativas</p>
+            </div>
           </div>
-          <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={funnelData}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="var(--text-sec)" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false}
-                  dy={10}
-                  interval={window.innerWidth < 768 ? 1 : 0}
-                />
-                <YAxis 
-                  stroke="var(--text-sec)" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false}
-                  tickFormatter={(value) => `${value}`}
-                  width={30}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'var(--bg-main)', 
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    color: 'var(--text-main)'
-                  }}
-                  itemStyle={{ color: 'var(--primary)' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="var(--primary)" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorValue)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Side Chart - Distribution */}
-        <div className="bg-bg-sidebar p-8 rounded-2xl border border-border-color">
-          <h3 className="text-xl font-semibold text-text-main mb-8">Distribuição de Status</h3>
-          <div className="h-[300px] w-full">
+          
+          <div className="h-[280px] w-full relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={funnelData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
+                  innerRadius={75}
+                  outerRadius={105}
+                  paddingAngle={4}
                   dataKey="value"
+                  stroke="var(--bg-sidebar)"
+                  strokeWidth={2}
+                  cornerRadius={4}
                 >
                   {funnelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={THEME_COLORS[index % THEME_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'var(--bg-main)', 
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px'
-                  }}
-                />
+                <RechartsTooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
+            {/* Texto Central do Donut - Estilo Inteligência de Dados */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-3xl font-black text-text-main">{totalLeads}</span>
+              <span className="text-[10px] uppercase font-bold text-text-sec tracking-widest mt-1">Total Ativo</span>
+            </div>
           </div>
-          <div className="mt-4 space-y-3">
-            {funnelData.map((item, index) => (
-              <div key={item.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span className="text-text-sec">{item.name}</span>
+
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            {funnelData.slice(0, 4).map((item, index) => (
+              <div key={item.name} className="flex flex-col bg-bg-main/50 border border-border-color rounded-lg p-2.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: THEME_COLORS[index % THEME_COLORS.length] }} />
+                  <span className="text-xs text-text-sec truncate max-w-[100px]" title={item.name}>{item.name}</span>
                 </div>
-                <span className="text-text-main font-medium">{item.value}</span>
+                <span className="text-sm font-bold text-text-main ml-4.5">{item.value} <span className="text-[10px] text-text-sec font-normal ml-1">un.</span></span>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Gráfico 2: Pipeline de Receita Congelada (Area Chart Moderno) */}
+        <div className="lg:col-span-2 bg-bg-sidebar p-6 md:p-8 rounded-2xl border border-border-color shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-lg font-bold text-text-main tracking-tight">Gargalos Financeiros por Etapa</h3>
+              <p className="text-xs text-text-sec mt-1">Volume de R$ bloqueado aguardando conversão no seu funil</p>
+            </div>
+          </div>
+          
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={funnelData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="primaryGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} opacity={0.5} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="var(--text-sec)" 
+                  fontSize={11} 
+                  tickLine={false} 
+                  axisLine={false}
+                  dy={10}
+                />
+                <YAxis 
+                  stroke="var(--text-sec)" 
+                  fontSize={11} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val}
+                />
+                <RechartsTooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="var(--primary)" 
+                  strokeWidth={4}
+                  fill="url(#primaryGrad)" 
+                  activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--primary)' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex items-center gap-2 p-3 bg-bg-main border border-border-color rounded-xl">
+             <AlertCircle size={16} className="text-secondary shrink-0" />
+             <p className="text-xs text-text-sec">Acompanhe as áreas de sombra no gráfico. Picos altos de concentração indicam falta de follow-up da sua equipe de vendas.</p>
+          </div>
+        </div>
+
       </div>
 
-      {/* Bottom Section: Recent Leads & Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent Leads */}
-        <div className="bg-bg-sidebar rounded-2xl border border-border-color overflow-hidden">
-          <div className="p-6 border-b border-border-color flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-text-main">Leads Recentes</h3>
-            <button className="text-primary text-sm font-medium hover:underline flex items-center gap-1">
-              Ver todos <ChevronRight size={14} />
-            </button>
+      {/* ROAI (Return on Asset Influence) & Atividades */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* ROAI - Receita Gerada por Canal */}
+        <div className="bg-bg-sidebar rounded-2xl border border-border-color shadow-sm flex flex-col">
+          <div className="p-6 md:p-8 border-b border-border-color flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-text-main tracking-tight">ROAI: Receita por Origem</h3>
+              <p className="text-xs text-text-sec mt-1">Análise de fechamento (R$) versus Canal Captador</p>
+            </div>
           </div>
-          <div className="divide-y divide-border-color">
-            {recentLeads.map((lead) => (
+          <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
+            {sourceData.length > 0 ? (
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sourceData} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={true} vertical={false} opacity={0.3} />
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" stroke="var(--text-sec)" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                    <RechartsTooltip content={<CustomTooltip formatter={(val: number) => formatCurrency(val)} />} cursor={{ fill: 'var(--bg-main)', opacity: 0.4 }} />
+                    <Bar dataKey="revenue" radius={[0, 4, 4, 0]} maxBarSize={32}>
+                      {sourceData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={THEME_COLORS[index % THEME_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-text-sec h-[250px] bg-bg-main/30 rounded-xl border border-dashed border-border-color">
+                <Target size={32} className="opacity-30 mb-2" />
+                <p className="text-sm">Feche seu primeiro negócio para ver a origem de receita.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* C-Level Activity Feed */}
+        <div className="bg-bg-sidebar rounded-2xl border border-border-color shadow-sm overflow-hidden flex flex-col">
+          <div className="p-6 md:p-8 border-b border-border-color flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-text-main tracking-tight">Última movimentação de Caixa</h3>
+              <p className="text-xs text-text-sec mt-1">Leads recentes classificados por Valor / Potencial</p>
+            </div>
+            <Clock size={18} className="text-text-sec hidden md:block" />
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-border-color">
+            {recentLeads.length > 0 ? recentLeads.map((lead) => (
               <div 
                 key={lead.id} 
                 onClick={() => onSelectClient?.(lead)}
-                className="p-4 hover:bg-bg-card transition-colors flex items-center justify-between group cursor-pointer"
+                className="p-4 md:p-6 hover:bg-bg-card transition-colors flex items-center justify-between group cursor-pointer"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-border-color flex items-center justify-center text-primary font-bold">
-                    {lead.name.charAt(0)}
+                  <div className="w-10 h-10 rounded-full bg-bg-main border border-border-color flex items-center justify-center text-primary font-bold shadow-sm">
+                    {lead.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="text-text-main font-medium group-hover:text-primary transition-colors">{lead.name}</h4>
-                    <p className="text-xs text-text-sec">{lead.email}</p>
+                    <h4 className="text-text-main font-semibold group-hover:text-primary transition-colors text-sm">{lead.name}</h4>
+                    <p className="text-xs text-text-sec mt-0.5 max-w-[120px] md:max-w-none truncate">{lead.email}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-text-main">R$ {lead.value.toLocaleString('pt-BR')}</p>
-                  <span className="text-[10px] uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                    {lead.status}
+                <div className="text-right flex flex-col items-end gap-1.5">
+                  <p className="text-sm font-bold text-text-main">{formatCurrency(Number(lead.value) || 0)}</p>
+                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border 
+                    ${lead.status === 'Fechado' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                      lead.status === 'Perdido' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : 
+                      'bg-primary/10 text-primary border-primary/20'}`}>
+                    {lead.status || 'Sem Status'}
                   </span>
                 </div>
               </div>
-            ))}
+            )) : (
+               <div className="p-8 text-center text-text-sec text-sm">
+                 Nenhum lead movimentado recentemente.
+               </div>
+            )}
           </div>
         </div>
 
-        {/* Activity Feed */}
-        <div className="bg-bg-sidebar rounded-2xl border border-border-color overflow-hidden">
-          <div className="p-6 border-b border-border-color flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-text-main">Atividades Recentes</h3>
-            <Clock size={18} className="text-text-sec" />
-          </div>
-          <div className="p-6 space-y-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex gap-4 relative">
-                {i !== 4 && <div className="absolute left-4 top-8 bottom-[-24px] w-px bg-border-color" />}
-                <div className="w-8 h-8 rounded-full bg-bg-main border border-border-color flex items-center justify-center shrink-0 z-10">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-text-main">
-                    <span className="font-semibold">Lead qualificado</span> movido para <span className="text-primary">Proposta Enviada</span>
-                  </p>
-                  <p className="text-xs text-text-sec mt-1">Há {i * 15} minutos • Por Sistema</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       <MockupGenerator 
-        pageName="Dashboard" 
-        promptDescription="Features 4 metric cards at the top, a large area chart for pipeline flow, a distribution pie chart, and lists for recent leads and activities." 
+        pageName="C-Level Dashboard" 
+        promptDescription="A highly professional dashboard with dark mode UI, featuring a metrics block with ROAI metrics, a large pipeline area chart, a customized donut chart with data labels, and a horizontal bar chart displaying revenue per channel." 
       />
     </div>
   );

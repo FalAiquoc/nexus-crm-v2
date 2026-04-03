@@ -10,12 +10,16 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  X,
+  FileText
 } from 'lucide-react';
 import { Appointment, Client } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from '../context/ToastContext';
 
 export function Calendar() {
+  const { showToast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -23,6 +27,15 @@ export function Calendar() {
   const [clients, setClients] = useState<Client[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [isSavingAppointment, setIsSavingAppointment] = useState(false);
+  const [newAppointment, setNewAppointment] = useState({
+    client_id: '',
+    title: '',
+    start_date: '',
+    start_time: '09:00',
+    end_time: '10:00',
+    notes: ''
+  });
 
   useEffect(() => {
     fetchAppointments();
@@ -268,6 +281,167 @@ export function Calendar() {
           </div>
         </div>
       </div>
+
+      {/* Modal Novo Agendamento (BUG-003 fix) */}
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-bg-sidebar w-full max-w-lg rounded-2xl border border-border-color shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-border-color flex items-center justify-between bg-bg-main/30">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <CalendarIcon size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-text-main">Novo Agendamento</h2>
+                    <p className="text-xs text-text-sec">Agende um atendimento com um cliente.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="p-2 hover:bg-bg-card rounded-xl text-text-sec hover:text-text-main transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                    <User size={14} /> Cliente
+                  </label>
+                  <select
+                    value={newAppointment.client_id}
+                    onChange={(e) => setNewAppointment({...newAppointment, client_id: e.target.value})}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all appearance-none"
+                  >
+                    <option value="">Selecione um cliente...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                    <FileText size={14} /> Título
+                  </label>
+                  <input
+                    type="text"
+                    value={newAppointment.title}
+                    onChange={(e) => setNewAppointment({...newAppointment, title: e.target.value})}
+                    placeholder="Ex: Reunião inicial, Consulta..."
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                    <CalendarIcon size={14} /> Data
+                  </label>
+                  <input
+                    type="date"
+                    value={newAppointment.start_date}
+                    onChange={(e) => setNewAppointment({...newAppointment, start_date: e.target.value})}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                      <Clock size={14} /> Hora Início
+                    </label>
+                    <input
+                      type="time"
+                      value={newAppointment.start_time}
+                      onChange={(e) => setNewAppointment({...newAppointment, start_time: e.target.value})}
+                      className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                      <Clock size={14} /> Hora Fim
+                    </label>
+                    <input
+                      type="time"
+                      value={newAppointment.end_time}
+                      onChange={(e) => setNewAppointment({...newAppointment, end_time: e.target.value})}
+                      className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest">Observações</label>
+                  <textarea
+                    value={newAppointment.notes}
+                    onChange={(e) => setNewAppointment({...newAppointment, notes: e.target.value})}
+                    placeholder="Detalhes adicionais..."
+                    rows={3}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-3 text-sm text-text-main focus:outline-none focus:border-primary transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 bg-bg-main/20 border-t border-border-color flex gap-3">
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-3 border border-border-color text-text-main rounded-xl font-bold hover:bg-bg-main transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!newAppointment.client_id || !newAppointment.title || !newAppointment.start_date) {
+                      showToast('Preencha cliente, título e data', 'error');
+                      return;
+                    }
+                    setIsSavingAppointment(true);
+                    try {
+                      const token = localStorage.getItem('nexus_token');
+                      const startISO = `${newAppointment.start_date}T${newAppointment.start_time}:00`;
+                      const endISO = `${newAppointment.start_date}T${newAppointment.end_time}:00`;
+                      const res = await fetch('/api/appointments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({
+                          client_id: newAppointment.client_id,
+                          title: newAppointment.title,
+                          start_time: startISO,
+                          end_time: endISO,
+                          notes: newAppointment.notes
+                        })
+                      });
+                      if (res.ok) {
+                        showToast('Agendamento criado com sucesso!', 'success');
+                        fetchAppointments();
+                        setShowModal(false);
+                        setNewAppointment({ client_id: '', title: '', start_date: '', start_time: '09:00', end_time: '10:00', notes: '' });
+                      } else {
+                        showToast('Erro ao criar agendamento', 'error');
+                      }
+                    } catch (err) {
+                      showToast('Erro de conexão', 'error');
+                    } finally {
+                      setIsSavingAppointment(false);
+                    }
+                  }}
+                  disabled={isSavingAppointment}
+                  className="flex-1 py-3 bg-primary text-bg-main rounded-xl font-bold hover:bg-secondary transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                >
+                  {isSavingAppointment ? 'Salvando...' : 'Agendar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

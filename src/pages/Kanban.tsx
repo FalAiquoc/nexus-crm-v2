@@ -61,9 +61,11 @@ export function Kanban({ onSelectClient }: KanbanProps) {
   const [tabsScrollLeft, setTabsScrollLeft] = useState(0);
 
   // Filter clients based on search
-  const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
+  const filteredClients = (clients || []).filter(c => 
+    c && (
+      (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(search.toLowerCase())
+    )
   );
 
   // Scroll Spy Logic: Sync active tab with board scroll position
@@ -213,7 +215,7 @@ export function Kanban({ onSelectClient }: KanbanProps) {
     if (!destination) return;
     if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    const client = clients.find(c => c.id === draggableId);
+    const client = (clients || []).find(c => c.id === draggableId);
     if (client) {
       updateClient({
         ...client,
@@ -263,7 +265,7 @@ export function Kanban({ onSelectClient }: KanbanProps) {
         onTouchEnd={handleTouchEnd}
         className={`md:hidden flex overflow-x-auto gap-2 mb-4 pb-2 shrink-0 hide-scrollbar select-none cursor-${isDraggingTabs ? 'grabbing' : 'default'}`}
       >
-        {stages.map(col => (
+        {(stages || []).map(col => (
           <button
             key={col.id}
             id={`tab-btn-${col.name}`}
@@ -330,9 +332,9 @@ export function Kanban({ onSelectClient }: KanbanProps) {
                                   }`}
                                 >
                                   <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-semibold text-text-main truncate pr-2">{client.name}</h4>
+                                    <h4 className="font-semibold text-text-main truncate pr-2">{client.name || 'Sem Nome'}</h4>
                                     <span className="text-xs font-bold text-secondary whitespace-nowrap">
-                                      R$ {client.value.toLocaleString('pt-BR')}
+                                      R$ {(Number(client.value) || 0).toLocaleString('pt-BR')}
                                     </span>
                                   </div>
                                   

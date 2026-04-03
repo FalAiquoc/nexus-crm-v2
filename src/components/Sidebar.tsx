@@ -26,6 +26,8 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   isMobileMenuOpen: boolean;
   onCloseMobileMenu: () => void;
+  user: any;
+  pendingRequestsCount?: number;
 }
 
 export function Sidebar({ 
@@ -36,7 +38,9 @@ export function Sidebar({
   isCollapsed,
   onToggleCollapse,
   isMobileMenuOpen,
-  onCloseMobileMenu
+  onCloseMobileMenu,
+  user,
+  pendingRequestsCount = 0
 }: SidebarProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -68,7 +72,7 @@ export function Sidebar({
     { id: 'automation', label: 'Automação', icon: Zap, show: true },
     { id: 'analytics', label: 'Relatórios', icon: BarChart3, show: true },
     { id: 'integrations', label: 'Integrações', icon: Link2, show: true },
-    { id: 'users', label: 'Usuários', icon: Users, show: true },
+    { id: 'users', label: 'Usuários', icon: Users, show: user?.role === 'admin' },
     { id: 'settings', label: 'Ajustes', icon: Settings, show: true },
   ] as const;
 
@@ -144,7 +148,12 @@ export function Sidebar({
                           : 'text-text-sec hover:text-text-main hover:bg-bg-card'
                       }`}
                     >
-                      <Icon size={20} className={isActive ? 'text-primary' : ''} strokeWidth={isActive ? 2.5 : 2} />
+                      <div className="relative">
+                        <Icon size={20} className={isActive ? 'text-primary' : ''} strokeWidth={isActive ? 2.5 : 2} />
+                        {item.id === 'users' && pendingRequestsCount > 0 && (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-bg-sidebar" />
+                        )}
+                      </div>
                       <span>{item.label}</span>
                     </button>
                   );
@@ -190,9 +199,19 @@ export function Sidebar({
                     : 'text-text-sec hover:text-text-main hover:bg-bg-card'
                 }`}
               >
-                <Icon size={20} className={`${isActive ? 'text-primary' : ''} shrink-0`} strokeWidth={isActive ? 2.5 : 2} />
+                <div className="relative">
+                  <Icon size={20} className={`${isActive ? 'text-primary' : ''} shrink-0`} strokeWidth={isActive ? 2.5 : 2} />
+                  {item.id === 'users' && pendingRequestsCount > 0 && (
+                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-bg-sidebar transition-all ${isCollapsed ? 'scale-110' : 'scale-100'}`} />
+                  )}
+                </div>
                 <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0 translate-x-4' : 'opacity-100 w-auto translate-x-0'}`}>
                   {item.label}
+                  {item.id === 'users' && pendingRequestsCount > 0 && !isCollapsed && (
+                    <span className="ml-2 px-1.5 py-0.5 bg-rose-500 text-[10px] text-white rounded-md font-bold">
+                      {pendingRequestsCount}
+                    </span>
+                  )}
                 </span>
               </button>
             );

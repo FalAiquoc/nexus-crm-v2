@@ -48,6 +48,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       if (userRes.ok) {
         setUser(await userRes.json());
+      } else {
+        setUser(null);
       }
 
       // Fetch Settings
@@ -63,32 +65,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (clientsRes.ok) {
-        setClients(await clientsRes.json());
+        const data = await clientsRes.json();
+        setClients(Array.isArray(data) ? data : []);
+      } else {
+        setClients([]);
       }
 
       // Fetch Pipelines & Stages
       const pipeRes = await fetch('/api/pipelines', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      let pipes = [];
       if (pipeRes.ok) {
-        const pipes = await pipeRes.json();
+        pipes = await pipeRes.json();
+        if (!Array.isArray(pipes)) pipes = [];
         setPipelines(pipes);
-        if (pipes.length > 0) {
-          const defaultPipe = pipes.find((p: any) => p.is_default) || pipes[0];
-          const stageRes = await fetch(`/api/pipelines/${defaultPipe.id}/stages`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (stageRes.ok) {
-            setStages(await stageRes.json());
-          }
-        }
+      } else {
+        setPipelines([]);
       }
 
-      // Fetch Appointments (Mock for now if API doesn't exist)
-      // setAppointments([...]);
+      if (pipes.length > 0) {
+        const defaultPipe = pipes.find((p: any) => p.is_default) || pipes[0];
+        const stageRes = await fetch(`/api/pipelines/${defaultPipe.id}/stages`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (stageRes.ok) {
+          const sData = await stageRes.json();
+          setStages(Array.isArray(sData) ? sData : []);
+        } else {
+          setStages([]);
+        }
+      } else {
+        setStages([]);
+      }
 
     } catch (err) {
       console.error('Error refreshing data:', err);
+      // Ensure we don't leave undefined states
+      setClients([]);
+      setPipelines([]);
+      setStages([]);
     } finally {
       setIsLoading(false);
     }

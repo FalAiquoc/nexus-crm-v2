@@ -28,7 +28,7 @@ export interface Workflow {
   steps?: any[]; // Array of steps for the visual builder
 }
 
-export type Page = 'dashboard' | 'kanban' | 'calendar' | 'subscriptions' | 'form' | 'contacts' | 'automation' | 'analytics' | 'integrations' | 'settings' | 'login' | 'users';
+export type Page = 'dashboard' | 'kanban' | 'calendar' | 'subscriptions' | 'form' | 'contacts' | 'automation' | 'analytics' | 'integrations' | 'settings' | 'login' | 'users' | 'profile' | 'notifications';
 
 export interface Client {
   id: string;
@@ -39,6 +39,26 @@ export interface Client {
   value: number;
   status: string;
   notes: string;
+  cpf_cnpj?: string;
+  rg?: string;
+  birth_date?: string;
+  address?: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  tags?: string[];
+  custom_fields?: Record<string, any>;
+  history?: Array<{
+    date: string;
+    action: string;
+    content: string;
+    user_id?: string;
+  }>;
 }
 
 export interface Appointment {

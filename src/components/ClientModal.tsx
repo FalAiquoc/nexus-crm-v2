@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, MapPin, DollarSign, Tag, Calendar, MessageSquare, Save, Trash2 } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, DollarSign, Tag, Calendar, MessageSquare, Save, Trash2, FileText } from 'lucide-react';
 import { Client } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -98,6 +98,18 @@ export function ClientModal({ client, isOpen, onClose, onSave, onDelete }: Clien
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-sec flex items-center gap-1.5">
+                    <FileText size={12} className="text-primary" /> CPF / CNPJ
+                  </label>
+                  <input 
+                    type="text"
+                    value={editedClient.cpf_cnpj || ''}
+                    onChange={(e) => handleChange('cpf_cnpj', e.target.value)}
+                    placeholder="000.000.000-00"
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <label className="text-xs font-medium text-text-sec">Origem do Lead</label>
                   <select 
                     value={editedClient.source}
@@ -111,6 +123,91 @@ export function ClientModal({ client, isOpen, onClose, onSave, onDelete }: Clien
                     <option value="Outros">Outros</option>
                   </select>
                 </div>
+              </div>
+            </section>
+
+            {/* Address */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-primary uppercase tracking-widest flex items-center gap-2">
+                <MapPin size={16} />
+                Localização (Giga-Dados)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-3 space-y-1.5">
+                  <label className="text-xs font-medium text-text-sec">Endereço / Logradouro</label>
+                  <input 
+                    type="text"
+                    value={editedClient.address?.street || ''}
+                    onChange={(e) => handleChange('address', { ...editedClient.address, street: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-text-main focus:outline-none focus:border-primary transition-all"
+                    placeholder="Rua, Av..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-sec">Nº</label>
+                  <input 
+                    type="text"
+                    value={editedClient.address?.number || ''}
+                    onChange={(e) => handleChange('address', { ...editedClient.address, number: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-xs font-medium text-text-sec">Cidade</label>
+                  <input 
+                    type="text"
+                    value={editedClient.address?.city || ''}
+                    onChange={(e) => handleChange('address', { ...editedClient.address, city: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-sec">Estado (UF)</label>
+                  <input 
+                    type="text"
+                    value={editedClient.address?.state || ''}
+                    onChange={(e) => handleChange('address', { ...editedClient.address, state: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-sec">CEP</label>
+                  <input 
+                    type="text"
+                    value={editedClient.address?.zip || ''}
+                    onChange={(e) => handleChange('address', { ...editedClient.address, zip: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Tags */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-primary uppercase tracking-widest flex items-center gap-2">
+                <Tag size={16} />
+                Segmentação e Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {['Empresa', 'Urgente', 'VIP', 'Processado', 'Aguardando'].map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => {
+                      const currentTags = editedClient.tags || [];
+                      const newTags = currentTags.includes(tag) 
+                        ? currentTags.filter(t => t !== tag)
+                        : [...currentTags, tag];
+                      handleChange('tags', newTags);
+                    }}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      (editedClient.tags || []).includes(tag)
+                        ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10'
+                        : 'bg-bg-main border-border-color text-text-sec hover:border-primary/50'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
             </section>
 

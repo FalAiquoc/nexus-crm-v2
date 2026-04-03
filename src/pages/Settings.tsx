@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Palette, CheckCircle2, Briefcase, Scissors, Scale, Building2 } from 'lucide-react';
 import { MockupGenerator } from '../components/MockupGenerator';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 
-const PRESET_THEMES = [
+export const PRESET_THEMES = [
   { name: 'Ouro Premium (Padrão)', primary: '#D4AF37', secondary: '#F3E5AB', gradStart: '#B8860B', gradEnd: '#D4AF37', bgMain: '#0A0A0A', bgSidebar: '#121212', bgCard: '#1A1A1A' },
   { name: 'Azul Meia-Noite', primary: '#3B82F6', secondary: '#60A5FA', gradStart: '#2563EB', gradEnd: '#3B82F6', bgMain: '#0B1120', bgSidebar: '#0F172A', bgCard: '#1E293B' },
   { name: 'Verde Sálvia', primary: '#10B981', secondary: '#34D399', gradStart: '#059669', gradEnd: '#10B981', bgMain: '#022C22', bgSidebar: '#064E3B', bgCard: '#065F46' },
@@ -19,8 +20,25 @@ const WORKSPACE_TYPES = [
 
 export function Settings() {
   const { settings, updateSettings, setSettings } = useApp();
+  const { showToast } = useToast();
   const [activeTheme, setActiveTheme] = useState(PRESET_THEMES[0].name);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Restaurar tema do Settings Global (DB)
+  useEffect(() => {
+    const activeThemeDb = settings.active_theme;
+    const activeThemeLocal = localStorage.getItem('nexus_theme');
+    
+    // O banco é a source of truth
+    const themeName = activeThemeDb || activeThemeLocal;
+    
+    if (themeName) {
+      const dbTheme = PRESET_THEMES.find(t => t.name === themeName);
+      if (dbTheme) {
+        setActiveTheme(dbTheme.name);
+      }
+    }
+  }, [settings.active_theme]);
 
   const handleUpdateSetting = async (key: string, value: string) => {
     setIsSaving(true);
@@ -28,8 +46,9 @@ export function Settings() {
     setIsSaving(false);
   };
 
-  const applyTheme = (theme: typeof PRESET_THEMES[0]) => {
+  const applyTheme = async (theme: typeof PRESET_THEMES[0]) => {
     setActiveTheme(theme.name);
+    // Aplicação imediata visual
     const root = document.documentElement;
     root.style.setProperty('--primary', theme.primary);
     root.style.setProperty('--secondary', theme.secondary);
@@ -38,6 +57,14 @@ export function Settings() {
     root.style.setProperty('--bg-main', theme.bgMain);
     root.style.setProperty('--bg-sidebar', theme.bgSidebar);
     root.style.setProperty('--bg-card', theme.bgCard);
+    
+    // Backup local
+    localStorage.setItem('nexus_theme', theme.name);
+    
+    // Sincronização oficial com BD
+    await handleUpdateSetting('active_theme', theme.name);
+    
+    showToast(`Tema "${theme.name}" integrado ao sistema!`, 'success');
   };
 
   return (

@@ -17,6 +17,8 @@ import {
 import { Page } from '../types';
 
 interface TopBarProps {
+  user: any;
+  onLogout: () => void;
   onNavigate: (page: Page) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -26,6 +28,8 @@ interface TopBarProps {
 }
 
 export function TopBar({ 
+  user,
+  onLogout,
   onNavigate, 
   isCollapsed, 
   onToggleCollapse, 
@@ -132,19 +136,39 @@ export function TopBar({
                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-bold">2 novas</span>
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
-                  <div className="p-4 border-b border-border-color hover:bg-bg-card transition-colors cursor-pointer">
+                  <div 
+                    onClick={() => {
+                      onNavigate('contacts');
+                      setIsNotificationsOpen(false);
+                    }}
+                    className="p-4 border-b border-border-color hover:bg-bg-card transition-colors cursor-pointer"
+                  >
                     <p className="text-sm text-text-main font-medium">Novo lead cadastrado</p>
                     <p className="text-xs text-text-sec mt-1">João Silva se cadastrou via formulário do site.</p>
                     <p className="text-[10px] text-text-sec mt-2">Há 5 minutos</p>
                   </div>
-                  <div className="p-4 border-b border-border-color hover:bg-bg-card transition-colors cursor-pointer">
+                  <div 
+                    onClick={() => {
+                      onNavigate('subscriptions');
+                      setIsNotificationsOpen(false);
+                    }}
+                    className="p-4 border-b border-border-color hover:bg-bg-card transition-colors cursor-pointer"
+                  >
                     <p className="text-sm text-text-main font-medium">Pagamento confirmado</p>
                     <p className="text-xs text-text-sec mt-1">Fatura #1024 paga com sucesso.</p>
                     <p className="text-[10px] text-text-sec mt-2">Há 2 horas</p>
                   </div>
                 </div>
                 <div className="p-3 text-center border-t border-border-color bg-bg-main/50">
-                  <button className="text-xs text-primary font-bold hover:underline">Ver todas</button>
+                  <button 
+                    onClick={() => {
+                      onNavigate('notifications');
+                      setIsNotificationsOpen(false);
+                    }}
+                    className="text-xs text-primary font-bold hover:underline"
+                  >
+                    Ver todas
+                  </button>
                 </div>
               </div>
             )}
@@ -158,11 +182,11 @@ export function TopBar({
               className="flex items-center gap-2 p-1 pl-1 pr-2 hover:bg-bg-card rounded-full transition-colors group"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-grad-start to-grad-end flex items-center justify-center text-bg-main font-bold text-xs border border-primary/20 shrink-0">
-                PR
+                {user?.name?.substring(0, 2).toUpperCase() || 'EX'}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-[10px] font-bold text-text-main leading-none">Pedro Renault</p>
-                <p className="text-[9px] text-text-sec leading-none mt-0.5 uppercase tracking-tighter">Administrador</p>
+                <p className="text-[10px] font-bold text-text-main leading-none">{user?.name || 'Usuário Nexus'}</p>
+                <p className="text-[9px] text-text-sec leading-none mt-0.5 uppercase tracking-tighter">{user?.role || 'Acesso'}</p>
               </div>
               <ChevronDown size={14} className="text-text-sec group-hover:text-text-main" />
             </button>
@@ -170,13 +194,13 @@ export function TopBar({
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-bg-sidebar border border-border-color rounded-2xl shadow-2xl overflow-hidden z-50">
                 <div className="p-4 border-b border-border-color bg-bg-main/50">
-                  <p className="text-sm font-bold text-text-main">Pedro Renault</p>
-                  <p className="text-xs text-text-sec truncate">pedrorenault31@gmail.com</p>
+                  <p className="text-sm font-bold text-text-main">{user?.name || 'Usuário Nexus'}</p>
+                  <p className="text-xs text-text-sec truncate">{user?.email || 'email@exemplo.com'}</p>
                 </div>
                 <div className="p-2">
                   <button 
                     onClick={() => {
-                      onNavigate('settings');
+                      onNavigate('profile');
                       setIsProfileOpen(false);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-sec hover:text-text-main hover:bg-bg-card rounded-xl transition-colors text-left"
@@ -196,9 +220,12 @@ export function TopBar({
                   </button>
                 </div>
                 <div className="p-2 border-t border-border-color">
-                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors text-left">
+                  <button 
+                    onClick={onLogout}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors text-left font-bold"
+                  >
                     <LogOut size={16} />
-                    Sair
+                    Sair da Sessão
                   </button>
                 </div>
               </div>

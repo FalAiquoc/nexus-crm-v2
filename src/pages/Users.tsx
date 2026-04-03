@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Users as UsersIcon, Plus, Search, Edit2, Trash2, Mail, Shield, Key, Link as LinkIcon, CheckCircle2, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users as UsersIcon, Plus, Search, Edit2, Trash2, Mail, Shield, Key, Link as LinkIcon, CheckCircle2, X, Clock, Check, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from '../context/ToastContext';
 
 interface UserData {
   id: string;
@@ -13,17 +14,43 @@ interface UserData {
 }
 
 const mockUsers: UserData[] = [
-  { id: '1', name: 'Pedro Renault', email: 'pedrorenault31@gmail.com', role: 'admin', plan: 'Enterprise', status: 'active', lastLogin: 'Agora' },
+  { id: 'admin-diogo', name: 'Diogo Admin', email: 'diogo@dvadvoga.com.br', role: 'admin', plan: 'Enterprise', status: 'active', lastLogin: 'Agora' },
   { id: '2', name: 'Ana Silva', email: 'ana.silva@exemplo.com', role: 'gestor', plan: 'Pro', status: 'active', lastLogin: 'Há 2 horas' },
   { id: '3', name: 'Carlos Santos', email: 'carlos.santos@exemplo.com', role: 'vendedor', plan: 'Basic', status: 'inactive', lastLogin: 'Há 5 dias' },
 ];
-
 export function Users() {
   const [users, setUsers] = useState<UserData[]>(mockUsers);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'requests'>('active');
+  const [accessRequests, setAccessRequests] = useState<any[]>([]);
+  const { showToast } = useToast();
+
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch('/api/admin/requests', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+      });
+      
+      const contentType = res.headers.get("content-type");
+      if (res.ok && contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await res.json();
+        setAccessRequests(data);
+      } else {
+        const text = await res.text();
+        console.warn('⚠️ [USERS_API_WARNING] Resposta não-JSON:', text.substring(0, 100));
+      }
+    } catch (err) {
+      console.error('🔥 [USERS_API_ERROR] Falha ao buscar solicitações:', err);
+      showToast('Erro ao sincronizar solicitações.', 'error');
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
   
   const [newUser, setNewUser] = useState<Partial<UserData>>({
     name: '',
@@ -80,7 +107,37 @@ export function Users() {
 
   const copyLink = () => {
     navigator.clipboard.writeText(generatedLink);
-    alert('Link copiado para a área de transferência!');
+    showToast('Link copiado para a área de transferência!', 'info');
+  };
+
+  const handleApproveRequest = (request: any) => {
+    setNewUser({
+      name: request.name,
+      email: request.email,
+      role: 'cliente',
+      plan: 'Basic',
+      status: 'active'
+    });
+    setEditingUser(null);
+    setIsModalOpen(true);
+    // Nota: O request só é deletado após o salvamento bem-sucedido do usuário (em um cenário real)
+    // aqui vamos deletar manualmente para o mock
+    handleRejectRequest(request.id, false);
+  };
+
+  const handleRejectRequest = async (id: string, notify = true) => {
+    try {
+      const res = await fetch(`/api/admin/requests/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+      });
+      if (res.ok) {
+        setAccessRequests(accessRequests.filter(r => r.id !== id));
+        if (notify) showToast('Solicitação removida.', 'info');
+      }
+    } catch (err) {
+      showToast('Erro ao remover solicitação.', 'error');
+    }
   };
 
   return (
@@ -108,6 +165,37 @@ export function Users() {
         </div>
       </div>
 
+      {/* Tab Switcher */}
+      <div className="flex border-b border-border-color gap-8 overflow-x-auto hide-scrollbar">
+        <button 
+          onClick={() => setActiveTab('active')}
+          className={`pb-4 px-2 text-sm font-bold transition-all relative whitespace-nowrap ${
+            activeTab === 'active' ? 'text-primary' : 'text-text-sec hover:text-text-main'
+          }`}
+        >
+          Usuários Ativos
+          {activeTab === 'active' && (
+            <motion.div layoutId="activeTabProp" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+          )}
+        </button>
+        <button 
+          onClick={() => setActiveTab('requests')}
+          className={`pb-4 px-2 text-sm font-bold transition-all relative whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'requests' ? 'text-primary' : 'text-text-sec hover:text-text-main'
+          }`}
+        >
+          Solicitações Pendentes
+          {accessRequests.length > 0 && (
+            <span className="w-5 h-5 bg-rose-500 text-[10px] text-white rounded-full flex items-center justify-center">
+              {accessRequests.length}
+            </span>
+          )}
+          {activeTab === 'requests' && (
+            <motion.div layoutId="activeTabProp" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+          )}
+        </button>
+      </div>
+
       <div className="bg-bg-sidebar rounded-2xl border border-border-color overflow-hidden">
         <div className="p-6 border-b border-border-color flex flex-col md:flex-row md:items-center justify-between gap-4 bg-bg-main/50">
           <div className="relative flex-1 max-w-md">
@@ -123,85 +211,148 @@ export function Users() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-border-color bg-bg-main/30">
-                <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Usuário</th>
-                <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Função</th>
-                <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Plano</th>
-                <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Último Acesso</th>
-                <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-color">
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-text-sec">
-                    Nenhum usuário encontrado.
-                  </td>
+          {activeTab === 'active' ? (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border-color bg-bg-main/30">
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Usuário</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Função</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Plano</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Último Acesso</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider text-right">Ações</th>
                 </tr>
-              ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-bg-card transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-grad-start to-grad-end flex items-center justify-center text-bg-main font-bold text-sm border border-primary/20 shrink-0">
-                          {user.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-text-main">{user.name}</p>
-                          <p className="text-xs text-text-sec flex items-center gap-1">
-                            <Mail size={10} />
-                            {user.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <Shield size={14} className={user.role === 'admin' ? 'text-rose-500' : 'text-primary'} />
-                        <span className="text-sm text-text-main capitalize">{user.role}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-text-main font-medium">{user.plan || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        user.status === 'active' 
-                          ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
-                          : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                      }`}>
-                        {user.status === 'active' ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-text-sec">
-                      {user.lastLogin}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleEdit(user)}
-                          className="p-2 text-text-sec hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="Editar"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(user.id)}
-                          className="p-2 text-text-sec hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-text-sec">
+                      Nenhum usuário encontrado.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-bg-card transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-grad-start to-grad-end flex items-center justify-center text-bg-main font-bold text-sm border border-primary/20 shrink-0">
+                            {user.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-text-main">{user.name}</p>
+                            <p className="text-xs text-text-sec flex items-center gap-1">
+                              <Mail size={10} />
+                              {user.email}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <Shield size={14} className={user.role === 'admin' ? 'text-rose-500' : 'text-primary'} />
+                          <span className="text-sm text-text-main capitalize">{user.role}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-text-main font-medium">{user.plan || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          user.status === 'active' 
+                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                            : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                        }`}>
+                          {user.status === 'active' ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-text-sec">
+                        {user.lastLogin}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => handleEdit(user)}
+                            className="p-2 text-text-sec hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(user.id)}
+                            className="p-2 text-text-sec hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border-color bg-bg-main/30">
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Interessado</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Empresa / Motivo</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider">Data</th>
+                  <th className="px-6 py-4 text-xs font-bold text-text-sec uppercase tracking-wider text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-color">
+                {accessRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-text-sec">
+                      Nenhuma solicitação pendente no momento.
+                    </td>
+                  </tr>
+                ) : (
+                  accessRequests.map((request) => (
+                    <tr key={request.id} className="hover:bg-bg-card transition-colors group">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-bold text-text-main">{request.name}</p>
+                          <p className="text-xs text-text-sec flex items-center gap-1">
+                            <Mail size={10} />
+                            {request.email}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-text-main">{request.business || 'Não informado'}</span>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-text-sec">
+                        <div className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {new Date(request.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button 
+                            onClick={() => handleRejectRequest(request.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-500 hover:bg-rose-500/10 rounded-lg font-bold transition-all"
+                          >
+                            <XCircle size={14} />
+                            Recusar
+                          </button>
+                          <button 
+                            onClick={() => handleApproveRequest(request)}
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-500 text-bg-main hover:bg-emerald-600 rounded-lg font-bold transition-all shadow-lg shadow-emerald-500/10"
+                          >
+                            <Check size={14} />
+                            Aprovar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Link2, 
   Search, 
@@ -11,114 +11,252 @@ import {
   CheckCircle2, 
   Plus,
   ArrowRight,
-  Loader2,
-  ExternalLink
+  ExternalLink,
+  Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MockupGenerator } from '../components/MockupGenerator';
+import { useApp } from '../context/AppContext';
+import { IntegrationModal, IntegrationModalConfig } from '../components/IntegrationModal';
 
 type IntegrationStatus = 'connected' | 'disconnected' | 'syncing' | 'error';
-type Category = 'all' | 'communication' | 'marketing' | 'productivity';
+type Category = 'all' | 'ai' | 'communication' | 'marketing' | 'productivity';
 
-interface Integration {
-  id: string;
+interface IntegrationDef {
+  id: string; // The primary ID to associate
   name: string;
   description: string;
   category: Category;
-  status: IntegrationStatus;
   icon: React.ElementType;
   color: string;
-  lastSync?: string;
+  checkSettingsKey: string; // The key in settings to check if connected
+  modalConfig: IntegrationModalConfig;
 }
 
-const mockIntegrations: Integration[] = [
+const integrationDefinitions: IntegrationDef[] = [
+  // --- AI / LLMs ---
   {
-    id: 'google-calendar',
-    name: 'Google Calendar',
-    description: 'Sincronize seus agendamentos, reuniões e lembretes bidirecionalmente.',
-    category: 'productivity',
-    status: 'connected',
-    icon: Calendar,
+    id: 'google-gemini',
+    name: 'Google Gemini AI',
+    description: 'Inteligência Artificial poderosa do Google. Padrão nativo com amplo Free Tier para startups.',
+    category: 'ai',
+    icon: Bot,
     color: 'text-blue-500',
-    lastSync: 'Há 5 min'
+    checkSettingsKey: 'gemini_api_key',
+    modalConfig: {
+      id: 'google-gemini',
+      name: 'Google Gemini',
+      icon: Bot,
+      color: 'text-blue-500',
+      type: 'api_key',
+      instructions: 'Para utilizar o Google Gemini gratuitamente ou na versão Pro, acesse o Google AI Studio, crie um novo projeto e gere sua API Key.',
+      docsUrl: 'https://aistudio.google.com/app/apikey',
+      fields: [
+        { key: 'gemini_api_key', label: 'API Key do Google Gemini', type: 'password', placeholder: 'AIzaSy...' }
+      ]
+    }
   },
   {
-    id: 'whatsapp',
-    name: 'WhatsApp Business',
-    description: 'Envie mensagens automáticas, lembretes e atenda clientes diretamente pelo CRM.',
+    id: 'openai',
+    name: 'OpenAI (ChatGPT)',
+    description: 'Integração com GPT-4o e GPT-3.5 para atendimento avançado e processamento de linguagem natural.',
+    category: 'ai',
+    icon: Bot,
+    color: 'text-emerald-500',
+    checkSettingsKey: 'openai_api_key',
+    modalConfig: {
+      id: 'openai',
+      name: 'OpenAI ChatGPT',
+      icon: Bot,
+      color: 'text-emerald-500',
+      type: 'api_key',
+      instructions: 'Acesse a plataforma de desenvolvedores da OpenAI, adicione créditos à sua conta (Freemium/Pay-as-you-go) e crie uma nova Secret Key.',
+      docsUrl: 'https://platform.openai.com/api-keys',
+      fields: [
+        { key: 'openai_api_key', label: 'OpenAI Secret Key', type: 'password', placeholder: 'sk-proj-...' }
+      ]
+    }
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic (Claude)',
+    description: 'Integração com Claude 3.5 Sonnet/Opus. Excelente para análise de contratos e funis jurídicos.',
+    category: 'ai',
+    icon: Bot,
+    color: 'text-orange-500',
+    checkSettingsKey: 'anthropic_api_key',
+    modalConfig: {
+      id: 'anthropic',
+      name: 'Anthropic Claude',
+      icon: Bot,
+      color: 'text-orange-500',
+      type: 'api_key',
+      instructions: 'Acesse o console da Anthropic e gere sua API Key. Recomendado para análise textual complexa.',
+      docsUrl: 'https://console.anthropic.com/settings/keys',
+      fields: [
+        { key: 'anthropic_api_key', label: 'Anthropic API Key', type: 'password', placeholder: 'sk-ant-...' }
+      ]
+    }
+  },
+  {
+    id: 'groq',
+    name: 'Groq (Open Source / Llama 3)',
+    description: 'Incrível velocidade utilizando modelos abertos como Llama 3 via LPU. Possui Free Tier gigante.',
+    category: 'ai',
+    icon: Bot,
+    color: 'text-rose-500',
+    checkSettingsKey: 'groq_api_key',
+    modalConfig: {
+      id: 'groq',
+      name: 'Groq (Llama Models)',
+      icon: Bot,
+      color: 'text-rose-500',
+      type: 'api_key',
+      instructions: 'GroqCloud oferece inferência ultra-rápida gratuita (com limites generosos) para Llama, Mixtral e Gemma. Acesse o console logando com Github ou Google e crie sua chave.',
+      docsUrl: 'https://console.groq.com/keys',
+      fields: [
+        { key: 'groq_api_key', label: 'Groq API Key', type: 'password', placeholder: 'gsk_...' }
+      ]
+    }
+  },
+
+  // --- COMMUNICATION ---
+  {
+    id: 'whatsapp-evo',
+    name: 'WhatsApp Business (Evo)',
+    description: 'Envie mensagens automáticas e atenda clientes diretamente pelo CRM (via Evolution API).',
     category: 'communication',
-    status: 'connected',
     icon: MessageCircle,
     color: 'text-emerald-500',
-    lastSync: 'Agora mesmo'
+    checkSettingsKey: 'whatsapp_evo_url',
+    modalConfig: {
+      id: 'whatsapp-evo',
+      name: 'WhatsApp Business',
+      icon: MessageCircle,
+      color: 'text-emerald-500',
+      type: 'webhook',
+      instructions: 'Para integrar o WhatsApp não-oficial, insira a URL da sua Evolution API e o Global API Key (ou chave da instância).',
+      docsUrl: 'https://evolution-api.com',
+      fields: [
+        { key: 'whatsapp_evo_url', label: 'Evolution API URL', type: 'text', placeholder: 'https://api.seudominio.com' },
+        { key: 'whatsapp_evo_key', label: 'API Key (Global/Instância)', type: 'password', placeholder: 'Insira o token...' }
+      ]
+    }
   },
   {
     id: 'instagram',
     name: 'Instagram Direct',
     description: 'Responda directs, menções nos stories e automatize o primeiro contato.',
     category: 'communication',
-    status: 'disconnected',
     icon: Instagram,
-    color: 'text-pink-500'
+    color: 'text-pink-500',
+    checkSettingsKey: 'instagram_token',
+    modalConfig: {
+      id: 'instagram',
+      name: 'Instagram Direct',
+      icon: Instagram,
+      color: 'text-pink-500',
+      type: 'oauth',
+      instructions: 'A integração direta via Meta requisita um longo processo ou uma ferramenta parceira terceira. Forneça o Webhook Token.',
+      fields: [
+        { key: 'instagram_token', label: 'Instagram Access Token', type: 'password', placeholder: 'IGQ...' }
+      ]
+    }
   },
-  {
-    id: 'telegram',
-    name: 'Telegram',
-    description: 'Crie bots de atendimento e envie notificações para grupos ou canais.',
-    category: 'communication',
-    status: 'disconnected',
-    icon: Send,
-    color: 'text-sky-400'
-  },
+
+  // --- MARKETING ---
   {
     id: 'meta-ads',
     name: 'Meta Ads',
     description: 'Capture leads nativos do Facebook e Instagram diretamente para o seu funil.',
     category: 'marketing',
-    status: 'connected',
     icon: Facebook,
     color: 'text-blue-600',
-    lastSync: 'Há 1 hora'
+    checkSettingsKey: 'meta_ads_token',
+    modalConfig: {
+      id: 'meta-ads',
+      name: 'Meta Ads',
+      icon: Facebook,
+      color: 'text-blue-600',
+      type: 'api_key',
+      instructions: 'Gere um token de acesso de sistema no App Dashboard do Meta para Facebook Lead Ads.',
+      docsUrl: 'https://developers.facebook.com/docs/marketing-api/',
+      fields: [
+        { key: 'meta_ads_token', label: 'System User Token', type: 'password', placeholder: 'EAAB...' }
+      ]
+    }
   },
+  
+  // --- PRODUCTIVITY ---
   {
-    id: 'google-ads',
-    name: 'Google Ads',
-    description: 'Acompanhe conversões de formulários e otimize suas campanhas de pesquisa.',
-    category: 'marketing',
-    status: 'disconnected',
-    icon: Target,
-    color: 'text-red-500'
+    id: 'google-calendar',
+    name: 'Google Calendar',
+    description: 'Sincronize seus agendamentos, reuniões e lembretes bidirecionalmente.',
+    category: 'productivity',
+    icon: Calendar,
+    color: 'text-blue-500',
+    checkSettingsKey: 'gcal_token',
+    modalConfig: {
+      id: 'google-calendar',
+      name: 'Google Calendar',
+      icon: Calendar,
+      color: 'text-blue-500',
+      type: 'oauth',
+      instructions: 'Você precisa autorizar o Nexus CRM a ler e escrever eventos no seu Google Calendar utilizando contas de serviço ou Oauth2.',
+      fields: [
+        { key: 'gcal_token', label: 'Refresh Token', type: 'password', placeholder: '1//...' }
+      ]
+    }
   }
 ];
 
 export function Integrations() {
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
+  const { settings, refreshData, updateSettings } = useApp();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
-  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<IntegrationModalConfig | null>(null);
 
-  const filteredIntegrations = integrations.filter(int => {
+  useEffect(() => {
+    // Ensure we trigger a refresh of settings to get latest keys when opening integrations
+    refreshData();
+  }, []);
+
+  const getStatus = (checkKey: string): IntegrationStatus => {
+    // If we have any value saved for this key, it is connected.
+    if (settings && settings[checkKey]) {
+      return 'connected';
+    }
+    return 'disconnected';
+  };
+
+  const filteredIntegrations = integrationDefinitions.filter(int => {
     const matchesSearch = int.name.toLowerCase().includes(search.toLowerCase()) || 
                           int.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = activeCategory === 'all' || int.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handleConnect = (id: string) => {
-    setConnectingId(id);
-    // Simulate connection process
-    setTimeout(() => {
-      setIntegrations(integrations.map(int => 
-        int.id === id ? { ...int, status: 'connected', lastSync: 'Agora mesmo' } : int
-      ));
-      setConnectingId(null);
-    }, 2000);
+  const handleConnectClick = (config: IntegrationModalConfig) => {
+    setSelectedConfig(config);
   };
 
-  const handleDisconnect = (id: string) => {
-    setIntegrations(integrations.map(int => 
-      int.id === id ? { ...int, status: 'disconnected', lastSync: undefined } : int
-    ));
+  const handleSuccess = (id: string) => {
+    refreshData(); // Refresh from API to update local state so badges change to connected
+  };
+
+  // Only to clear from DB to visually show disconnection
+  const handleDisconnect = async (checkKeys: string[]) => {
+    if (confirm("Tem certeza que deseja desconectar? Suas conversas ou automações podem parar.")) {
+      try {
+        // Here we ideally send a DEL or update to empty for all keys involved
+        for (const key of checkKeys) {
+            await updateSettings(key, '');
+        }
+        await refreshData();
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao desconectar');
+      }
+    }
   };
 
   return (
@@ -129,7 +267,7 @@ export function Integrations() {
           <Link2 className="text-primary" size={28} />
           <div>
             <h1 className="text-3xl font-bold text-text-main tracking-tight">Integrações</h1>
-            <p className="text-text-sec mt-1">Conecte o Nexus CRM às suas ferramentas favoritas.</p>
+            <p className="text-text-sec mt-1">Conecte o Nexus CRM às suas ferramentas, inclusive inteligência artificial.</p>
           </div>
         </div>
         <button className="flex items-center gap-2 px-6 py-3 bg-bg-card border border-border-color rounded-xl text-text-main font-bold hover:bg-hover-color/20 transition-all">
@@ -143,8 +281,9 @@ export function Integrations() {
         <div className="flex overflow-x-auto hide-scrollbar w-full md:w-auto gap-2 pb-2 md:pb-0">
           {[
             { id: 'all', label: 'Todas' },
+            { id: 'ai', label: 'Inteligência Artificial' },
             { id: 'communication', label: 'Comunicação' },
-            { id: 'marketing', label: 'Marketing & Ads' },
+            { id: 'marketing', label: 'Marketing' },
             { id: 'productivity', label: 'Produtividade' }
           ].map(cat => (
             <button
@@ -176,85 +315,87 @@ export function Integrations() {
       {/* Integrations Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence mode="popLayout">
-          {filteredIntegrations.map((integration) => (
-            <motion.div
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
-              key={integration.id}
-              className={`bg-bg-sidebar rounded-2xl border transition-all duration-300 flex flex-col overflow-hidden group ${
-                integration.status === 'connected' 
-                  ? 'border-primary/30 shadow-[0_0_15px_rgba(201,168,76,0.05)]' 
-                  : 'border-border-color hover:border-hover-color'
-              }`}
-            >
-              <div className="p-6 flex-1">
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`w-12 h-12 rounded-xl bg-bg-main border border-border-color flex items-center justify-center ${integration.color} shadow-inner`}>
-                    <integration.icon size={24} />
+          {filteredIntegrations.map((def) => {
+            const status = getStatus(def.checkSettingsKey);
+            return (
+              <motion.div
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.2 }}
+                key={def.id}
+                className={`bg-bg-sidebar rounded-2xl border transition-all duration-300 flex flex-col overflow-hidden group ${
+                  status === 'connected' 
+                    ? 'border-primary/30 shadow-[0_0_15px_rgba(201,168,76,0.05)]' 
+                    : 'border-border-color hover:border-hover-color'
+                }`}
+              >
+                <div className="p-6 flex-1">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className={`w-12 h-12 rounded-xl bg-bg-main border border-border-color flex items-center justify-center ${def.color} shadow-inner`}>
+                      <def.icon size={24} />
+                    </div>
+                    
+                    {status === 'connected' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider">
+                        <CheckCircle2 size={12} />
+                        Conectado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-main text-text-sec border border-border-color text-[10px] font-bold uppercase tracking-wider">
+                        Desconectado
+                      </span>
+                    )}
                   </div>
                   
-                  {integration.status === 'connected' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider">
-                      <CheckCircle2 size={12} />
-                      Conectado
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-main text-text-sec border border-border-color text-[10px] font-bold uppercase tracking-wider">
-                      Desconectado
-                    </span>
-                  )}
+                  <h3 className="text-lg font-bold text-text-main mb-2">{def.name}</h3>
+                  <p className="text-sm text-text-sec leading-relaxed line-clamp-3">
+                    {def.description}
+                  </p>
                 </div>
-                
-                <h3 className="text-lg font-bold text-text-main mb-2">{integration.name}</h3>
-                <p className="text-sm text-text-sec leading-relaxed line-clamp-3">
-                  {integration.description}
-                </p>
-              </div>
 
-              <div className="p-4 border-t border-border-color bg-bg-main/50 flex items-center justify-between mt-auto">
-                <div className="text-xs text-text-sec">
-                  {integration.status === 'connected' && integration.lastSync ? (
-                    <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Sincronizado: {integration.lastSync}
-                    </span>
+                <div className="p-4 border-t border-border-color bg-bg-main/50 flex items-center justify-between mt-auto">
+                  <div className="text-xs text-text-sec">
+                    {status === 'connected' ? (
+                      <span className="flex items-center gap-1 text-emerald-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Disponível
+                      </span>
+                    ) : (
+                      <span>Pronto para conectar</span>
+                    )}
+                  </div>
+                  
+                  {status === 'connected' ? (
+                    <div className="flex items-center gap-2">
+                       <button 
+                        onClick={() => handleConnectClick(def.modalConfig)}
+                        className="text-xs font-bold text-primary hover:text-primary/70 transition-colors uppercase tracking-wider"
+                      >
+                        Ajustar
+                      </button>
+                      <span className="text-border-color">|</span>
+                      <button 
+                        onClick={() => handleDisconnect(def.modalConfig.fields.map(f => f.key))}
+                        className="text-xs font-bold text-text-sec hover:text-rose-500 transition-colors uppercase tracking-wider"
+                      >
+                        Desconectar
+                      </button>
+                    </div>
                   ) : (
-                    <span>Pronto para conectar</span>
+                    <button 
+                      onClick={() => handleConnectClick(def.modalConfig)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-primary text-bg-main rounded-lg text-xs font-bold hover:bg-secondary transition-colors"
+                    >
+                      Conectar
+                      <ArrowRight size={14} />
+                    </button>
                   )}
                 </div>
-                
-                {integration.status === 'connected' ? (
-                  <button 
-                    onClick={() => handleDisconnect(integration.id)}
-                    className="text-xs font-bold text-text-sec hover:text-rose-500 transition-colors uppercase tracking-wider"
-                  >
-                    Desconectar
-                  </button>
-                ) : (
-                  <button 
-                    onClick={() => handleConnect(integration.id)}
-                    disabled={connectingId === integration.id}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-bg-main rounded-lg text-xs font-bold hover:bg-secondary transition-colors disabled:opacity-70"
-                  >
-                    {connectingId === integration.id ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Conectando...
-                      </>
-                    ) : (
-                      <>
-                        Conectar
-                        <ArrowRight size={14} />
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
 
@@ -266,19 +407,22 @@ export function Integrations() {
         </div>
       )}
 
-      <div className="bg-bg-sidebar border border-border-color p-6 rounded-2xl flex items-center justify-between mt-8">
+      {/* Custom Webhook Card */}
+      <div className="bg-bg-sidebar border border-border-color p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between mt-8 gap-4">
         <div>
           <h4 className="font-bold text-text-main mb-1">API Personalizada (Webhooks)</h4>
           <p className="text-sm text-text-sec">Receba leads de qualquer sistema via POST request.</p>
         </div>
-        <button className="p-3 bg-bg-main text-primary rounded-xl border border-border-color hover:border-primary/50 transition-colors">
-          <ExternalLink size={20} />
+        <button className="flex items-center justify-center gap-2 px-4 py-3 bg-bg-main text-primary rounded-xl border border-border-color hover:border-primary/50 transition-colors font-bold text-sm">
+          Acessar Documentação da API <ExternalLink size={16} />
         </button>
       </div>
 
-      <MockupGenerator 
-        pageName="Integrations" 
-        promptDescription="A grid of integration cards (Google Calendar, WhatsApp, Meta Ads, etc). Each card has an icon, description, and a connect/disconnect button. Status badges show if it's active." 
+      <IntegrationModal 
+        isOpen={selectedConfig !== null}
+        onClose={() => setSelectedConfig(null)}
+        config={selectedConfig}
+        onSuccess={handleSuccess}
       />
     </div>
   );

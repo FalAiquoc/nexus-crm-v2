@@ -3,6 +3,7 @@ import { CreditCard, Plus, Search, Filter, MoreVertical, CheckCircle2, AlertCirc
 import { Subscription, Plan, Client } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../context/ToastContext';
 
 interface Automation {
   id: string;
@@ -15,6 +16,7 @@ interface Automation {
 
 export function Subscriptions() {
   const { settings } = useApp();
+  const { showToast } = useToast();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,11 +150,17 @@ export function Subscriptions() {
           <p className="text-text-sec mt-1">Gerencie seus planos recorrentes e cobranças automáticas.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center justify-center gap-2 bg-bg-card hover:bg-border-color text-text-main px-6 py-2.5 rounded-xl font-semibold transition-all border border-border-color">
+          <button
+            onClick={() => showToast('Módulo de automação de cobranças em breve!', 'info')}
+            className="flex items-center justify-center gap-2 bg-bg-card hover:bg-border-color text-text-main px-6 py-2.5 rounded-xl font-semibold transition-all border border-border-color"
+          >
             <Zap size={20} className="text-primary" />
             Configurar Automação
           </button>
-          <button className="flex items-center justify-center gap-2 bg-primary hover:bg-secondary text-bg-main px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-primary/20">
+          <button
+            onClick={() => showToast('Criação de assinaturas disponível em breve!', 'info')}
+            className="flex items-center justify-center gap-2 bg-primary hover:bg-secondary text-bg-main px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-primary/20"
+          >
             <Plus size={20} />
             Nova Assinatura
           </button>
@@ -241,10 +249,16 @@ export function Subscriptions() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors">
+                      <button
+                        onClick={() => showToast('Edição de assinaturas em breve!', 'info')}
+                        className="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors"
+                      >
                         <Edit2 size={16} />
                       </button>
-                      <button className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 transition-colors">
+                      <button
+                        onClick={() => showToast('Exclusão de assinaturas em breve!', 'info')}
+                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 transition-colors"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -336,7 +350,10 @@ export function Subscriptions() {
                   ))}
                 </ul>
                 
-                <button className="w-full py-2.5 bg-bg-card border border-border-color text-text-main rounded-lg font-semibold hover:bg-primary hover:text-bg-main hover:border-primary transition-all mt-auto">
+                <button
+                  onClick={() => showToast('Módulo de assinatura de planos em breve!', 'info')}
+                  className="w-full py-2.5 bg-bg-card border border-border-color text-text-main rounded-lg font-semibold hover:bg-primary hover:text-bg-main hover:border-primary transition-all mt-auto"
+                >
                   Assinar Plano
                 </button>
               </div>
