@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import db, { initializeDatabase, isSimulatedMode } from "./server/db";
 import { comparePassword, generateToken, verifyToken } from "./server/auth";
+import bcrypt from "bcryptjs";
 
 async function startServer() {
   // Ensure DB is ready
@@ -137,17 +138,54 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/admin/requests/:id", authenticate, adminOnly, async (req, res) => {
-    const { id } = req.params;
+  // Usuários API
+  app.get("/api/users", authenticate, adminOnly, async (req, res) => {
     try {
-      await db.prepare("DELETE FROM access_requests WHERE id = $1").run(id);
+      const users = await db.prepare("SELECT id, name, email, role, status, created_at FROM users ORDER BY created_at DESC").all();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao buscar usuários" });
+    }
+  });
+
+  app.post("/api/users", authenticate, adminOnly, async (req, res) => {
+    const { name, email, password, role, status } = req.body;
+    const id = Math.random().toString(36).substr(2, 9);
+    try {
+      const hashedPassword = await bcrypt.hash(password || 'nexus123', 10);
+      await db.prepare("INSERT INTO users (id, name, email, password, role, status) VALUES ($1, $2, $3, $4, $5, $6)")
+        .run(id, name, email, hashedPassword, role || 'cliente', status || 'active');
+      res.status(201).json({ id, name, email, role, status });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/users/:id", authenticate, adminOnly, async (req, res) => {
+    const { id } = req.params;
+    const { name, email, role, status } = req.body;
+    try {
+      await db.prepare("UPDATE users SET name = $1, email = $2, role = $3, status = $4 WHERE id = $5")
+        .run(name, email, role, status, id);
+      res.json({ id, name, email, role, status });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/users/:id", authenticate, adminOnly, async (req, res) => {
+    const { id } = req.params;
+    if (id === (req as any).userId) return res.status(400).json({ error: "Não é possível excluir o próprio usuário" });
+    try {
+      await db.prepare("DELETE FROM users WHERE id = $1").run(id);
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: "Falha ao remover solicitação" });
+      res.status(500).json({ error: "Falha ao excluir usuário" });
     }
   });
 
   // Leads / Contatos API
+
   app.get("/api/leads", authenticate, async (req, res) => {
     try {
       const leads = await db.prepare("SELECT * FROM leads ORDER BY created_at DESC").all();

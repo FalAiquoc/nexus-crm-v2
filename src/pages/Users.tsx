@@ -13,13 +13,9 @@ interface UserData {
   lastLogin: string;
 }
 
-const mockUsers: UserData[] = [
-  { id: 'admin-diogo', name: 'Diogo Admin', email: 'diogo@dvadvoga.com.br', role: 'admin', plan: 'Enterprise', status: 'active', lastLogin: 'Agora' },
-  { id: '2', name: 'Ana Silva', email: 'ana.silva@exemplo.com', role: 'gestor', plan: 'Pro', status: 'active', lastLogin: 'Há 2 horas' },
-  { id: '3', name: 'Carlos Santos', email: 'carlos.santos@exemplo.com', role: 'vendedor', plan: 'Basic', status: 'inactive', lastLogin: 'Há 5 dias' },
-];
 export function Users() {
-  const [users, setUsers] = useState<UserData[]>(mockUsers);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -27,6 +23,22 @@ export function Users() {
   const [activeTab, setActiveTab] = useState<'active' | 'requests'>('active');
   const [accessRequests, setAccessRequests] = useState<any[]>([]);
   const { showToast } = useToast();
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/users', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar usuários:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchRequests = async () => {
     try {
@@ -49,6 +61,7 @@ export function Users() {
   };
 
   useEffect(() => {
+    fetchUsers();
     fetchRequests();
   }, []);
   
@@ -67,24 +80,33 @@ export function Users() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSaveUser = () => {
-    if (editingUser) {
-      setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...newUser } as UserData : u));
-    } else {
-      const user: UserData = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: newUser.name || '',
-        email: newUser.email || '',
-        role: newUser.role as any,
-        plan: newUser.plan,
-        status: newUser.status as any,
-        lastLogin: 'Nunca'
-      };
-      setUsers([user, ...users]);
+  const handleSaveUser = async () => {
+    const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
+    const method = editingUser ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('nexus_token')}`
+        },
+        body: JSON.stringify(newUser)
+      });
+
+      if (res.ok) {
+        showToast(editingUser ? 'Usuário atualizado!' : 'Usuário criado com sucesso!', 'success');
+        fetchUsers();
+        setIsModalOpen(false);
+        setNewUser({ name: '', email: '', role: 'cliente', plan: 'Basic', status: 'active' });
+        setEditingUser(null);
+      } else {
+        const errData = await res.json();
+        showToast(errData.error || 'Erro ao salvar usuário', 'error');
+      }
+    } catch (err) {
+      showToast('Erro crítico ao salvar usuário', 'error');
     }
-    setIsModalOpen(false);
-    setNewUser({ name: '', email: '', role: 'cliente', plan: 'Basic', status: 'active' });
-    setEditingUser(null);
   };
 
   const handleEdit = (user: UserData) => {
@@ -93,9 +115,23 @@ export function Users() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-      setUsers(users.filter(u => u.id !== id));
+      try {
+        const res = await fetch(`/api/users/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+        });
+        if (res.ok) {
+          showToast('Usuário removido com sucesso', 'success');
+          fetchUsers();
+        } else {
+          const errData = await res.json();
+          showToast(errData.error || 'Erro ao excluir usuário', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao excluir usuário', 'error');
+      }
     }
   };
 
