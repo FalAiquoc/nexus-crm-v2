@@ -201,7 +201,7 @@ const integrationDefinitions: IntegrationDef[] = [
       icon: Calendar,
       color: 'text-blue-500',
       type: 'oauth',
-      instructions: 'Você precisa autorizar o Nexus CRM a ler e escrever eventos no seu Google Calendar utilizando contas de serviço ou Oauth2.',
+      instructions: 'Você precisa autorizar o CRM DoBoy a ler e escrever eventos no seu Google Calendar utilizando contas de serviço ou Oauth2.',
       fields: [
         { key: 'gcal_token', label: 'Refresh Token', type: 'password', placeholder: '1//...' }
       ]
@@ -267,7 +267,7 @@ export function Integrations() {
           <Link2 className="text-primary" size={28} />
           <div>
             <h1 className="text-3xl font-bold text-text-main tracking-tight">Integrações</h1>
-            <p className="text-text-sec mt-1">Conecte o Nexus CRM às suas ferramentas, inclusive inteligência artificial.</p>
+            <p className="text-text-sec mt-1">Conecte o CRM DoBoy às suas ferramentas, inclusive inteligência artificial.</p>
           </div>
         </div>
         <button className="flex items-center gap-2 px-6 py-3 bg-bg-card border border-border-color rounded-xl text-text-main font-bold hover:bg-hover-color/20 transition-all">

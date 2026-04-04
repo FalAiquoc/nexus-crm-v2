@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Plus, Search, Filter, MoreVertical, CheckCircle2, AlertCircle, Clock, Trash2, Edit2, Zap, Scissors, Building2, X, MessageSquare, Calendar } from 'lucide-react';
+import { CreditCard, Plus, Search, Filter, MoreVertical, CheckCircle2, AlertCircle, Clock, Trash2, Edit2, Zap, Scissors, Building2, X, MessageSquare, Calendar, ShieldAlert } from 'lucide-react';
 import { Subscription, Plan, Client } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
@@ -15,12 +15,14 @@ interface Automation {
 }
 
 export function Subscriptions() {
-  const { settings } = useApp();
+  const { settings, clients } = useApp();
   const { showToast } = useToast();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newSub, setNewSub] = useState({ client_id: '', plan_id: '', next_billing_date: '' });
   
   const [automations, setAutomations] = useState<Automation[]>([
     {
@@ -92,7 +94,7 @@ export function Subscriptions() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('nexus_token');
+      const token = localStorage.getItem('doboy_token');
       const [subsRes] = await Promise.all([
         fetch('/api/subscriptions', { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
@@ -107,6 +109,31 @@ export function Subscriptions() {
       console.error('Failed to fetch subscription data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateSubscription = async () => {
+    if (!newSub.client_id || !newSub.plan_id || !newSub.next_billing_date) {
+      showToast('Preencha todos os campos', 'error');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('doboy_token');
+      const res = await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newSub)
+      });
+      if (res.ok) {
+        showToast('Assinatura criada com sucesso!', 'success');
+        fetchData();
+        setIsCreateModalOpen(false);
+        setNewSub({ client_id: '', plan_id: '', next_billing_date: '' });
+      } else {
+        showToast('Erro ao criar assinatura', 'error');
+      }
+    } catch (err) {
+      showToast('Erro de conexão', 'error');
     }
   };
 
@@ -158,7 +185,7 @@ export function Subscriptions() {
             Configurar Automação
           </button>
           <button
-            onClick={() => showToast('Criação de assinaturas disponível em breve!', 'info')}
+            onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-primary hover:bg-secondary text-bg-main px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-primary/20"
           >
             <Plus size={20} />
@@ -361,6 +388,102 @@ export function Subscriptions() {
           </div>
         </div>
       </div>
+
+      {/* Create Subscription Modal */}
+      <AnimatePresence>
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-bg-sidebar w-full max-w-lg rounded-3xl border border-border-color shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-border-color flex items-center justify-between bg-bg-main/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <CreditCard size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-text-main">Nova Assinatura</h2>
+                    <p className="text-xs text-text-sec">Vincule um cliente a um plano recorrente.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="p-2 hover:bg-bg-main rounded-full text-text-sec transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                    <ShieldAlert size={14} />
+                    Cliente
+                  </label>
+                  <select 
+                    value={newSub.client_id}
+                    onChange={(e) => setNewSub({ ...newSub, client_id: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all appearance-none"
+                  >
+                    <option value="">Selecione um cliente...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                    <CreditCard size={14} />
+                    Plano
+                  </label>
+                  <select 
+                    value={newSub.plan_id}
+                    onChange={(e) => setNewSub({ ...newSub, plan_id: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all appearance-none"
+                  >
+                    <option value="">Selecione um plano...</option>
+                    {displayPlans.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} - R$ {p.price.toFixed(2)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-text-sec uppercase tracking-widest flex items-center gap-2">
+                    <Calendar size={14} />
+                    Próximo Vencimento
+                  </label>
+                  <input 
+                    type="date"
+                    value={newSub.next_billing_date}
+                    onChange={(e) => setNewSub({ ...newSub, next_billing_date: e.target.value })}
+                    className="w-full bg-bg-main border border-border-color rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 bg-bg-main/20 border-t border-border-color flex gap-3">
+                <button 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="flex-1 py-3 border border-border-color text-text-main rounded-xl font-bold hover:bg-bg-main transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleCreateSubscription}
+                  className="flex-1 py-3 bg-primary text-bg-main rounded-xl font-bold hover:bg-secondary transition-all shadow-lg shadow-primary/20"
+                >
+                  Criar Assinatura
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Automation Edit Modal */}
       <AnimatePresence>

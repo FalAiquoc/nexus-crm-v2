@@ -25,6 +25,8 @@ interface TopBarProps {
   workspaceType?: 'general' | 'barbershop' | 'law_firm';
   businessName?: string;
   onOpenMobileMenu: () => void;
+  sidebarMode?: 'fixed' | 'auto' | 'minimized';
+  currentPage: Page;
 }
 
 export function TopBar({ 
@@ -34,8 +36,10 @@ export function TopBar({
   isCollapsed, 
   onToggleCollapse, 
   workspaceType = 'general',
-  businessName = 'Nexus CRM',
-  onOpenMobileMenu
+  businessName = workspaceType === 'barbershop' ? 'Central Barber DoBoy' : 'CRM DoBoy',
+  onOpenMobileMenu,
+  sidebarMode = 'auto',
+  currentPage
 }: TopBarProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -65,27 +69,34 @@ export function TopBar({
           <Menu size={20} />
         </button>
 
-        <button 
-          onClick={onToggleCollapse}
-          className="hidden md:flex p-2 text-text-sec hover:text-primary hover:bg-bg-card rounded-lg transition-colors"
-          title={isCollapsed ? "Expandir menu" : "Recolher menu"}
-        >
-          {isCollapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
-        </button>
+        {/* Botão de Toggle - Oculto no modo Automático para evitar conflitos de clique/hover */}
+        {sidebarMode !== 'auto' && (
+          <button 
+            onClick={onToggleCollapse}
+            className="hidden md:flex p-2 text-text-sec hover:text-primary hover:bg-bg-card rounded-lg transition-colors"
+            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+          >
+            {isCollapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+          </button>
+        )}
         
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0">
-            N
+          <div className="w-8 h-8 bg-gradient-to-br from-grad-start to-grad-end rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0 shadow-lg shadow-primary/20">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-bg-main">
+              <path d="M12 2L17.5 5.5L22 12L17.5 18.5L12 22L6.5 18.5L2 12L6.5 5.5L12 2Z" />
+            </svg>
           </div>
           <span className="text-text-main font-semibold text-sm truncate max-w-[100px] sm:max-w-[150px] md:max-w-none">
-            {businessName === 'Nexus CRM' && workspaceType === 'barbershop' ? 'Central Barber' : businessName}
+            {businessName}
           </span>
         </div>
 
         <div className="hidden lg:flex items-center gap-1 ml-4">
           <button 
             onClick={() => onNavigate('dashboard')}
-            className="px-3 py-1.5 text-xs font-medium text-text-sec hover:text-text-main hover:bg-bg-card rounded-md transition-colors flex items-center gap-2"
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
+              currentPage === 'dashboard' ? 'text-primary bg-primary/10' : 'text-text-sec hover:text-text-main hover:bg-bg-card'
+            }`}
           >
             <LayoutGrid size={14} />
             Dashboard
@@ -93,7 +104,9 @@ export function TopBar({
           {(workspaceType === 'barbershop' || workspaceType === 'law_firm') && (
             <button 
               onClick={() => onNavigate('calendar')}
-              className="px-3 py-1.5 text-xs font-medium text-text-sec hover:text-text-main hover:bg-bg-card rounded-md transition-colors flex items-center gap-2"
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
+                currentPage === 'calendar' ? 'text-primary bg-primary/10' : 'text-text-sec hover:text-text-main hover:bg-bg-card'
+              }`}
             >
               <CalendarIcon size={14} />
               Agenda
@@ -101,7 +114,9 @@ export function TopBar({
           )}
           <button 
             onClick={() => onNavigate('form')}
-            className="px-3 py-1.5 text-xs font-medium text-text-sec hover:text-text-main hover:bg-bg-card rounded-md transition-colors flex items-center gap-2"
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${
+              currentPage === 'form' ? 'text-primary bg-primary/10' : 'text-text-sec hover:text-text-main hover:bg-bg-card'
+            }`}
           >
             <UserPlus size={14} />
             {workspaceType === 'barbershop' ? 'Novo Cliente' : 'Novo Lead'}
@@ -179,22 +194,24 @@ export function TopBar({
           <div className="relative" ref={profileRef}>
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2 p-1 pl-1 pr-2 hover:bg-bg-card rounded-full transition-colors group"
+              className="flex items-center gap-3 p-1 hover:bg-bg-card rounded-full transition-all border border-transparent hover:border-border-color group"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-grad-start to-grad-end flex items-center justify-center text-bg-main font-bold text-xs border border-primary/20 shrink-0">
-                {user?.name?.substring(0, 2).toUpperCase() || 'EX'}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-grad-start to-grad-end flex items-center justify-center text-[var(--text-on-grad)] font-black text-[13px] border border-primary/30 shadow-lg shadow-primary/10 shrink-0 transform group-hover:scale-105 transition-transform">
+                {user?.name?.substring(0, 2).toUpperCase() || 'DX'}
               </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-[10px] font-bold text-text-main leading-none">{user?.name || 'Usuário Nexus'}</p>
-                <p className="text-[9px] text-text-sec leading-none mt-0.5 uppercase tracking-tighter">{user?.role || 'Acesso'}</p>
+              <div className="hidden sm:block text-left mr-1">
+                <p className="text-[12px] font-bold text-text-main leading-tight group-hover:text-primary transition-colors">{user?.name || 'Diogo Admin'}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[8px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 tracking-widest uppercase">{user?.role || 'ADMIN'}</span>
+                </div>
               </div>
-              <ChevronDown size={14} className="text-text-sec group-hover:text-text-main" />
+              <ChevronDown size={14} className={`text-text-sec transition-transform duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-bg-sidebar border border-border-color rounded-2xl shadow-2xl overflow-hidden z-50">
                 <div className="p-4 border-b border-border-color bg-bg-main/50">
-                  <p className="text-sm font-bold text-text-main">{user?.name || 'Usuário Nexus'}</p>
+                  <p className="text-sm font-bold text-text-main">{user?.name || 'Usuário DoBoy'}</p>
                   <p className="text-xs text-text-sec truncate">{user?.email || 'email@exemplo.com'}</p>
                 </div>
                 <div className="p-2">

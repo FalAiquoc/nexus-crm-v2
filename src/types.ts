@@ -97,4 +97,8 @@ export interface Subscription {
 export interface WorkspaceSettings {
   workspace_type: 'general' | 'barbershop' | 'law_firm';
   business_name: string;
+  ui_density?: 'comfortable' | 'compact';
+  sidebar_mode?: 'fixed' | 'auto' | 'minimized';
+  theme?: string;
+  active_theme?: string;
 }

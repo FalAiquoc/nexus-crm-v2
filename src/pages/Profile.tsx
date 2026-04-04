@@ -212,7 +212,7 @@ export function Profile() {
             <div className="space-y-3">
               <div className="p-3 bg-bg-main/20 rounded-xl border border-border-color">
                 <p className="text-[10px] text-text-sec uppercase tracking-tighter mb-1">Empresa Principal</p>
-                <p className="text-sm font-bold text-text-main">Nexus Soluções Jurídicas</p>
+                <p className="text-sm font-bold text-text-main">DoBoy Soluções Jurídicas</p>
               </div>
               <div className="p-3 bg-bg-main/20 rounded-xl border border-border-color">
                 <p className="text-[10px] text-text-sec uppercase tracking-tighter mb-1">Plano Ativo</p>

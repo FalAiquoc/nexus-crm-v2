@@ -26,16 +26,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
-  const [settings, setSettings] = useState<WorkspaceSettings>({
-    workspace_type: 'general',
-    business_name: 'Nexus CRM'
+  const [settings, setSettings] = useState<WorkspaceSettings>(() => {
+    const savedSettings = localStorage.getItem('doboy_settings');
+    if (savedSettings) {
+      try {
+        return JSON.parse(savedSettings);
+      } catch {
+        // ignore parse errors
+      }
+    }
+    return {
+      workspace_type: 'general',
+      business_name: 'CRM DoBoy',
+      active_theme: 'ouro-negro',
+      sidebar_mode: 'auto',
+      ui_density: 'comfortable'
+    };
   });
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshData = async () => {
-    const token = localStorage.getItem('nexus_token');
+    const token = localStorage.getItem('doboy_token');
     if (!token) {
       setIsLoading(false);
       return;
@@ -70,6 +85,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         setClients([]);
       }
+
+      // Fetch Appointments
+      const apptRes = await fetch('/api/appointments', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (apptRes.ok) {
+        const data = await apptRes.json();
+        setAppointments(Array.isArray(data) ? data : []);
+      }
+
+      // Fetch Plans & Subscriptions
+      const [plansRes, subRes] = await Promise.all([
+        fetch('/api/plans', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/subscriptions', { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+      if (plansRes.ok) setPlans(await plansRes.json());
+      if (subRes.ok) setSubscriptions(await subRes.json());
 
       // Fetch Pipelines & Stages
       const pipeRes = await fetch('/api/pipelines', {
@@ -117,7 +149,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateClient = async (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
-    const token = localStorage.getItem('nexus_token');
+    const token = localStorage.getItem('doboy_token');
     try {
       await fetch(`/api/leads/${updatedClient.id}`, {
         method: 'PUT',
@@ -134,7 +166,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteClient = async (id: string) => {
     setClients(prev => prev.filter(c => c.id !== id));
-    const token = localStorage.getItem('nexus_token');
+    const token = localStorage.getItem('doboy_token');
     try {
       await fetch(`/api/leads/${id}`, {
         method: 'DELETE',
@@ -149,7 +181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateSettings = async (key: string, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
-    const token = localStorage.getItem('nexus_token');
+    const token = localStorage.getItem('doboy_token');
     try {
       await fetch(`/api/settings/${key}`, {
         method: 'PUT',
@@ -165,9 +197,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const addAppointment = async (appointment: Omit<Appointment, 'id'>) => {
-    const newAppointment = { ...appointment, id: Math.random().toString(36).substr(2, 9) } as Appointment;
-    setAppointments(prev => [...prev, newAppointment]);
-    // API call would go here
+    try {
+      const token = localStorage.getItem('doboy_token');
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(appointment),
+      });
+      if (response.ok) {
+        const newApp = await response.json();
+        setAppointments(prev => [...prev, newApp]);
+        return newApp;
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar agendamento:', error);
+    }
   };
 
   return (

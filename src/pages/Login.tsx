@@ -34,7 +34,7 @@ export function Login({ onLogin }: LoginProps) {
         body = { email };
       } else {
         endpoint = '/api/auth/request-access';
-        body = { name, email, business };
+        body = { name, email, business, business_name: 'CRM DoBoy' };
       }
 
       const response = await fetch(endpoint, {
@@ -73,10 +73,10 @@ export function Login({ onLogin }: LoginProps) {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <Hexagon size={32} className="text-primary" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-bg-main font-bold text-2xl shadow-lg shadow-primary/20 mb-4">
+            B
           </div>
-          <h1 className="text-3xl font-bold text-text-main tracking-tight">Nexus CRM</h1>
+          <h1 className="text-3xl font-bold text-text-main tracking-tight">CRM DoBoy</h1>
           <p className="text-text-sec mt-2">Entre com suas credenciais para acessar o painel.</p>
         </div>
 

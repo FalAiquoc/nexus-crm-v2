@@ -56,7 +56,7 @@ export function MockupGenerator({ pageName, promptDescription }: MockupGenerator
         <button
           onClick={generateMockup}
           disabled={loading}
-          className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-grad-start to-grad-end hover:from-primary hover:to-secondary text-bg-main rounded-lg font-bold transition-all disabled:opacity-50 disabled:hover:from-grad-start disabled:hover:to-grad-end flex items-center justify-center gap-2 shrink-0"
+          className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-grad-start to-grad-end hover:from-primary hover:to-secondary text-[var(--text-on-grad)] rounded-lg font-bold transition-all disabled:opacity-50 disabled:hover:from-grad-start disabled:hover:to-grad-end flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-primary/10"
         >
           {loading ? <Loader2 size={18} className="animate-spin" /> : <ImageIcon size={18} />}
           {loading ? 'GERANDO...' : 'GERAR MOCKUP'}

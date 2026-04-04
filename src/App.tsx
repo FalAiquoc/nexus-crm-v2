@@ -25,20 +25,14 @@ import { useApp } from './context/AppContext';
 import { useToast } from './context/ToastContext';
 import { Page, Client } from './types';
 
-const PRESET_THEMES: Record<string, Record<string, string>> = {
-  'Ouro Premium (Padrão)': { primary: '#D4AF37', secondary: '#F3E5AB', 'grad-start': '#B8860B', 'grad-end': '#D4AF37', 'bg-main': '#0A0A0A', 'bg-sidebar': '#121212', 'bg-card': '#1A1A1A' },
-  'Azul Meia-Noite': { primary: '#3B82F6', secondary: '#60A5FA', 'grad-start': '#2563EB', 'grad-end': '#3B82F6', 'bg-main': '#0B1120', 'bg-sidebar': '#0F172A', 'bg-card': '#1E293B' },
-  'Verde Sálvia': { primary: '#10B981', secondary: '#34D399', 'grad-start': '#059669', 'grad-end': '#10B981', 'bg-main': '#022C22', 'bg-sidebar': '#064E3B', 'bg-card': '#065F46' },
-  'Roxo Imperial': { primary: '#A855F7', secondary: '#C084FC', 'grad-start': '#9333EA', 'grad-end': '#A855F7', 'bg-main': '#09090B', 'bg-sidebar': '#18181B', 'bg-card': '#27272A' },
-  'Titânio Minimalista': { primary: '#F8FAFC', secondary: '#E2E8F0', 'grad-start': '#94A3B8', 'grad-end': '#F8FAFC', 'bg-main': '#000000', 'bg-sidebar': '#0A0A0A', 'bg-card': '#141414' },
-};
+import { PRESET_THEMES, ThemeName } from './constants';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const { 
     user, setUser, 
     clients, updateClient, deleteClient,
-    settings, refreshData,
+    settings, refreshData, updateSettings,
     isLoading
   } = useApp();
   const { showToast } = useToast();
@@ -54,7 +48,8 @@ export default function App() {
       const fetchRequests = async () => {
         try {
           const res = await fetch('/api/admin/requests', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+            // Unificação cirúrgica das chaves para DoBoy
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('doboy_token')}` }
           });
           
           const contentType = res.headers.get("content-type");
@@ -75,9 +70,8 @@ export default function App() {
     }
   }, [user]);
 
-  // Restaurar tema (BUG-010 Global fix com BD Sync)
   useEffect(() => {
-    const themeName = settings.active_theme || localStorage.getItem('nexus_theme');
+    const themeName = (settings.active_theme || localStorage.getItem('doboy_theme')) as ThemeName;
     if (themeName && PRESET_THEMES[themeName]) {
       const vars = PRESET_THEMES[themeName];
       Object.entries(vars).forEach(([key, val]) => {
@@ -86,21 +80,27 @@ export default function App() {
     }
   }, [settings.active_theme]);
 
+  // Sincronizar Sidebar Mode & UI Density
+  useEffect(() => {
+    if (settings.sidebar_mode === 'fixed') setIsSidebarCollapsed(false);
+    if (settings.sidebar_mode === 'minimized') setIsSidebarCollapsed(true);
+  }, [settings.sidebar_mode]);
+
   const handleLogin = (newToken: string, newUser: any) => {
-    localStorage.setItem('nexus_token', newToken);
+    localStorage.setItem('doboy_token', newToken);
     setUser(newUser);
     refreshData();
     setCurrentPage('dashboard');
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('nexus_token');
+    localStorage.removeItem('doboy_token');
     setUser(null);
     setCurrentPage('login');
   };
 
   const handleAddClient = async (newClient: any) => {
-    const token = localStorage.getItem('nexus_token');
+    const token = localStorage.getItem('doboy_token');
     try {
       const res = await fetch('/api/leads', {
         method: 'POST',
@@ -178,7 +178,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-bg-main text-text-main font-sans overflow-hidden">
+    <div className={`flex h-screen bg-bg-main text-text-main font-sans overflow-hidden ${settings.ui_density === 'compact' ? 'density-compact' : ''} ${settings.active_theme || ''}`}>
       <Sidebar 
         currentPage={currentPage} 
         onNavigate={setCurrentPage} 
@@ -189,8 +189,12 @@ export default function App() {
         isMobileMenuOpen={isMobileMenuOpen}
         onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         user={user}
+        sidebarMode={settings.sidebar_mode}
+        setSidebarMode={(mode) => updateSettings('sidebar_mode', mode)}
         pendingRequestsCount={pendingRequestsCount}
+        businessName={settings.business_name || (settings.workspace_type === 'barbershop' ? 'Central Barber DoBoy' : 'CRM DoBoy')}
       />
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopBar 
           user={user}
@@ -200,9 +204,15 @@ export default function App() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           workspaceType={settings.workspace_type}
           businessName={settings.business_name}
+          sidebarMode={settings.sidebar_mode}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          currentPage={currentPage}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 pb-24 md:pb-8">
+        <main className={`flex-1 min-h-0 pb-24 md:pb-0 ${
+          currentPage === 'kanban'
+            ? 'overflow-hidden p-4 md:p-6 flex flex-col'
+            : 'overflow-y-auto p-[var(--page-padding)]'
+        }`}>
           {renderPage()}
         </main>
       </div>

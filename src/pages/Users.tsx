@@ -27,7 +27,7 @@ export function Users() {
   const fetchUsers = async () => {
     try {
       const res = await fetch('/api/users', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('doboy_token')}` }
       });
       if (res.ok) {
         const data = await res.json();
@@ -43,7 +43,7 @@ export function Users() {
   const fetchRequests = async () => {
     try {
       const res = await fetch('/api/admin/requests', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('doboy_token')}` }
       });
       
       const contentType = res.headers.get("content-type");
@@ -89,7 +89,7 @@ export function Users() {
         method,
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('nexus_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('doboy_token')}`
         },
         body: JSON.stringify(newUser)
       });
@@ -120,7 +120,7 @@ export function Users() {
       try {
         const res = await fetch(`/api/users/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('doboy_token')}` }
         });
         if (res.ok) {
           showToast('Usuário removido com sucesso', 'success');
@@ -136,7 +136,8 @@ export function Users() {
   };
 
   const generateLink = () => {
-    const link = `https://nexus-crm.app/signup?plan=${newUser.plan}&role=${newUser.role}&token=${Math.random().toString(36).substr(2, 9)}`;
+    // Link de convite oficial DoBoy
+    const link = `https://doboy.app/signup?plan=${newUser.plan}&role=${newUser.role}&token=${Math.random().toString(36).substr(2, 9)}`;
     setGeneratedLink(link);
     setIsLinkModalOpen(true);
   };
@@ -165,7 +166,7 @@ export function Users() {
     try {
       const res = await fetch(`/api/admin/requests/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('nexus_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('doboy_token')}` }
       });
       if (res.ok) {
         setAccessRequests(accessRequests.filter(r => r.id !== id));

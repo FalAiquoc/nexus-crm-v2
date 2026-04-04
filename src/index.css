@@ -15,6 +15,100 @@
   --hover-color: #D4AF37;
   --grad-start: #B8860B;
   --grad-end: #D4AF37;
+  
+  /* Layout Spacing */
+  --page-padding: 2rem;
+  --card-padding: 1.5rem;
+  --section-gap: 1.5rem;
+  --font-base: 14px;
+}
+
+/* Barber Themes */
+
+/* 1. Barber Classic - Resgate da tradição */
+.theme-barber-classic {
+  --bg-main: #F8FAFC;
+  --bg-sidebar: #1E3A8A; /* Navy Blue */
+  --bg-card: #FFFFFF;
+  --primary: #EF4444;    /* Barber Red */
+  --secondary: #2563EB;  /* Classic Blue */
+  --text-main: #1E293B;
+  --text-sec: #64748B;
+  --border-color: #E2E8F0;
+  --hover-color: #DC2626;
+  --grad-start: #1E3A8A;
+  --grad-end: #EF4444;
+}
+
+/* 2. Barber Dark - Moderno e intimista */
+.theme-barber-dark {
+  --bg-main: #0F172A;
+  --bg-sidebar: #1E293B;
+  --bg-card: #1E293B;
+  --primary: #EF4444;    /* Strong Red */
+  --secondary: #38BDF8;  /* Sky Blue accents */
+  --text-main: #F8FAFC;
+  --text-sec: #94A3B8;
+  --border-color: #1E293B;  /* Suavizado de #334155 */
+  --hover-color: #F87171;
+  --grad-start: #EF4444;
+  --grad-end: #0D1424;      /* Mais profundo */
+}
+
+/* 3. Modern Chrome - Tons de cinza e metalizado */
+.theme-barber-chrome {
+  --bg-main: #E5E7EB;
+  --bg-sidebar: #1F2937;    /* Mais escuro */
+  --bg-card: #FFFFFF;
+  --primary: #111827;
+  --secondary: #DC2626;
+  --text-main: #111827;
+  --text-sec: #4B5563;
+  --border-color: #CBD5E1;  /* Suavizado de #D1D5DB */
+  --hover-color: #991B1B;
+  --grad-start: #1F2937;
+  --grad-end: #64748B;
+}
+
+/* 4. Luxury Barber - Ouro e Navy (Prêmio) */
+.theme-barber-luxury {
+  --bg-main: #020617;
+  --bg-sidebar: #0F172A;
+  --bg-card: #0A0F1E;
+  --primary: #C5A028;       /* Gold mais fosco */
+  --secondary: #3B82F6;
+  --text-main: #F1F5F9;
+  --text-sec: #64748B;
+  --border-color: #1E293B;  /* Sutil, removendo o azul vivo */
+  --hover-color: #3B82F6;
+  --grad-start: #0F172A;
+  --grad-end: #1E3A8A;
+}
+
+.density-compact {
+  --page-padding: 1.25rem;
+  --card-padding: 1rem;
+  --section-gap: 1rem;
+  --font-base: 13px;
+}
+
+/* Overrides cirúrgicos para modo compacto */
+.density-compact .p-8 { padding: 1.25rem !important; }
+.density-compact .p-6 { padding: 1rem !important; }
+.density-compact .p-10 { padding: 1.5rem !important; }
+.density-compact .px-8 { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+.density-compact .py-8 { padding-top: 1.25rem !important; padding-bottom: 1.25rem !important; }
+.density-compact .gap-8 { gap: 1.25rem !important; }
+.density-compact .gap-6 { gap: 1rem !important; }
+.density-compact .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem !important; }
+.density-compact .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+
+/* Dashboard and Kanban specifics */
+.density-compact .h-32 { height: 6rem !important; }
+.density-compact .h-24 { height: 5rem !important; }
+
+body {
+  font-size: var(--font-base);
 }
 
 body {

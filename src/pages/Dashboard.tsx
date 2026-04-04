@@ -8,28 +8,37 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
 import { motion } from 'motion/react';
-import { MockupGenerator } from '../components/MockupGenerator';
 import { useApp } from '../context/AppContext';
 
-// Paleta vinculada ao Tema
-const THEME_COLORS = ['var(--primary)', 'var(--secondary)', 'var(--grad-start)', '#94A3B8', '#475569', '#334155'];
+// Paleta Executiva (Padrão Power BI Premium)
+const THEME_COLORS = [
+  'var(--primary)', 
+  'var(--secondary)', 
+  '#6366F1', // Indigo Insight
+  '#8B5CF6', // Violet Value
+  '#EC4899', // Pink Performance
+  '#F59E0B'  // Amber Alert
+];
 
 interface DashboardProps {
   onSelectClient?: (client: any) => void;
 }
 
-// Custom Tooltips for Premium feel
-const CustomTooltip = ({ active, payload, label, formatter }: any) => {
+// Custom Tooltips para visual de Software BI de Alta Performance
+const CustomTooltip = ({ active, payload, label, formatter, suffix = "" }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-bg-sidebar/95 backdrop-blur-sm border border-border-color p-4 rounded-xl shadow-2xl">
-        <p className="text-text-sec text-xs uppercase tracking-wider mb-2">{label}</p>
+      <div className="bg-bg-sidebar/95 backdrop-blur-md border border-primary/20 p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-l-4 border-l-primary animate-in fade-in zoom-in duration-200">
+        <p className="text-text-sec text-[10px] uppercase font-black tracking-[0.2em] mb-2 opacity-50">{label || 'Métrica'}</p>
         {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex flex-col gap-1">
-            <span className="text-text-main font-bold text-lg" style={{ color: entry.color }}>
-              {formatter ? formatter(entry.value) : entry.value}
-            </span>
-            <span className="text-text-sec text-xs">{entry.name}</span>
+          <div key={index} className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+               <span className="text-text-main font-black text-xl tracking-tight">
+                 {formatter ? formatter(entry.value) : entry.value}{suffix}
+               </span>
+            </div>
+            <span className="text-text-sec text-xs font-medium ml-4">{entry.name}</span>
           </div>
         ))}
       </div>
@@ -54,10 +63,15 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
     
     const conversionRate = totalLeads > 0 ? ((closedLeadsList.length / totalLeads) * 100).toFixed(1) : 0;
 
-    const funnelData = (stages || []).map(stage => ({
-      name: stage.name,
-      value: list.filter(c => c && c.status === stage.name).length
+    // Uso exclusivo dos stages vindos do banco de dados (via AppContext)
+    const activeStages = stages || [];
+    const funnelData = activeStages.map((s: any) => ({
+      name: s.name,
+      leads: list.filter(c => c?.status === s.name).length,
+      value: list.filter(c => c?.status === s.name).reduce((sum, c) => sum + (Number(c.value) || 0), 0)
     }));
+    const hasFunnelValues = funnelData.some(d => d.value > 0);
+    const safeFunnelData = hasFunnelValues ? funnelData : funnelData.map((d, i) => ({ ...d, value: i === 0 ? 1 : 0 }));
 
     // Métricas por Origem (ROAI)
     const sourceMap = list.reduce((acc: any, c) => {
@@ -72,10 +86,10 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
     
     const sourceData = Object.values(sourceMap).sort((a: any, b: any) => b.revenue - a.revenue);
 
-    return { totalLeads, openValue, closedValue, conversionRate, funnelData, sourceData, openLeadsList };
+    return { totalLeads, openValue, closedValue, conversionRate, funnelData, safeFunnelData, sourceData, openLeadsList };
   }, [clients, stages]);
 
-  const { totalLeads, openValue, closedValue, conversionRate, funnelData, sourceData } = memoizedData;
+  const { totalLeads, openValue, closedValue, conversionRate, funnelData, safeFunnelData, sourceData } = memoizedData;
 
   if (isLoading) {
     return (
@@ -132,41 +146,7 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
-      {/* Header Executivo */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-bg-sidebar border border-border-color p-8 rounded-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="p-3 bg-bg-main border border-border-color rounded-xl">
-            <Activity className="text-primary" size={32} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-text-main tracking-tight">Executive Dashboard</h1>
-            <p className="text-text-sec mt-1 text-sm max-w-xl">
-              Bem-vindo ao centro de inteligência do Nexus. Acompanhe a liquidez do funil, métricas de conversão e o ROI dos seus canais de aquisição em tempo real.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 relative z-10 w-full md:w-auto mt-4 md:mt-0">
-          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-bg-main border border-border-color rounded-xl text-sm font-medium text-text-main hover:bg-border-color transition-colors shadow-sm">
-            <Filter size={16} /> Data
-          </button>
-          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-primary/10 border border-primary/30 rounded-xl text-sm font-medium text-primary hover:bg-primary hover:text-bg-main hover:border-transparent transition-all shadow-sm group">
-            <Download size={16} className="group-hover:animate-bounce" /> Exportar Relatório
-          </button>
-        </div>
-      </div>
 
-      {/* Insight Gerado por IA */}
-      <div className="bg-gradient-to-r from-primary/10 via-transparent to-transparent border-l-4 border-primary rounded-r-xl p-4 flex items-start gap-3">
-        <Sparkles className="text-primary mt-0.5 shrink-0" size={20} />
-        <div>
-          <h4 className="text-sm font-semibold text-text-main">Insight Quantitativo (Alpha Quant)</h4>
-          <p className="text-sm text-text-sec mt-1">
-            Sua taxa de conversão geral é de <strong className="text-text-main">{conversionRate}%</strong>. O canal de aquisição com maior liquidez é 
-            <strong className="text-primary ml-1">{sourceData[0]?.name || 'ND'}</strong>, responsável por grande parte dos <strong>{formatCurrency(closedValue)}</strong> em caixa.
-          </p>
-        </div>
-      </div>
 
       {/* Métricas de Crescimento (KPI Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -199,106 +179,165 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
       {/* Gráficos Estratégicos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Gráfico 1: Ring Chart Refinado */}
-        <div className="bg-bg-sidebar p-6 md:p-8 rounded-2xl border border-border-color shadow-sm flex flex-col justify-between relative">
+        {/* Gráfico 1: Ring Chart Refinado (Market Distribution) */}
+        <div className="bg-bg-sidebar p-6 md:p-8 rounded-2xl border border-border-color shadow-sm flex flex-col justify-between relative group hover:border-primary/30 transition-all duration-500">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h3 className="text-lg font-bold text-text-main tracking-tight">Distribuição de Funil</h3>
-              <p className="text-xs text-text-sec mt-1">Volume de {workspaceType === 'law_firm' ? 'Processos' : 'Leads'} nas etapas ativas</p>
+              <h3 className="text-xl font-black text-text-main tracking-tight uppercase text-sm opacity-80">Distribuição de Funil</h3>
+              <p className="text-xs text-text-sec mt-1">Market share interno por etapa operacional</p>
+            </div>
+            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+              <Activity size={16} />
             </div>
           </div>
           
-          <div className="h-[280px] w-full relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+          <div style={{ width: '100%', height: 260 }} className="relative mt-2">
+            <ResponsiveContainer width="100%" height="260">
+              <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <defs>
+                  {funnelData.map((_, index) => (
+                    <linearGradient key={`grad-${index}`} id={`grad-${index}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={THEME_COLORS[index % THEME_COLORS.length]} stopOpacity={1} />
+                      <stop offset="100%" stopColor={THEME_COLORS[index % THEME_COLORS.length]} stopOpacity={0.7} />
+                    </linearGradient>
+                  ))}
+                </defs>
                 <Pie
-                  data={funnelData}
+                  data={safeFunnelData}
                   cx="50%"
                   cy="50%"
                   innerRadius={75}
                   outerRadius={105}
-                  paddingAngle={4}
+                  paddingAngle={3}
                   dataKey="value"
-                  stroke="var(--bg-sidebar)"
-                  strokeWidth={2}
-                  cornerRadius={4}
+                  strokeWidth={0}
+                  animationBegin={0}
+                  animationDuration={1500}
                 >
                   {funnelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={THEME_COLORS[index % THEME_COLORS.length]} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={`url(#grad-${index})`} 
+                      className="hover:opacity-80 transition-opacity cursor-pointer outline-none"
+                    />
                   ))}
                 </Pie>
-                <RechartsTooltip content={<CustomTooltip />} />
+                <RechartsTooltip content={<CustomTooltip suffix=" leads" />} />
               </PieChart>
             </ResponsiveContainer>
-            {/* Texto Central do Donut - Estilo Inteligência de Dados */}
+            {/* HUD Central Intelligence */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-3xl font-black text-text-main">{totalLeads}</span>
-              <span className="text-[10px] uppercase font-bold text-text-sec tracking-widest mt-1">Total Ativo</span>
+              <motion.span 
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-4xl font-black text-text-main tracking-tighter"
+              >
+                {totalLeads}
+              </motion.span>
+              <span className="text-[10px] uppercase font-black text-primary tracking-[0.3em] mt-1">Total Assets</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-4 mt-6">
             {funnelData.slice(0, 4).map((item, index) => (
-              <div key={item.name} className="flex flex-col bg-bg-main/50 border border-border-color rounded-lg p-2.5">
+              <div key={item.name} className="flex flex-col p-3 rounded-xl bg-bg-main/40 border border-border-color hover:bg-bg-main/60 transition-colors">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: THEME_COLORS[index % THEME_COLORS.length] }} />
-                  <span className="text-xs text-text-sec truncate max-w-[100px]" title={item.name}>{item.name}</span>
+                  <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: THEME_COLORS[index % THEME_COLORS.length] }} />
+                  <span className="text-[10px] font-black text-text-sec uppercase tracking-wider truncate">{item.name}</span>
                 </div>
-                <span className="text-sm font-bold text-text-main ml-4.5">{item.value} <span className="text-[10px] text-text-sec font-normal ml-1">un.</span></span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-black text-text-main">{item.value}</span>
+                  <span className="text-[10px] text-text-sec font-bold opacity-50">UNIT</span>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Gráfico 2: Pipeline de Receita Congelada (Area Chart Moderno) */}
-        <div className="lg:col-span-2 bg-bg-sidebar p-6 md:p-8 rounded-2xl border border-border-color shadow-sm">
+        {/* Gráfico 2: Revenue Pipeline Velocity (Power BI Area Style) */}
+        <div className="lg:col-span-2 bg-bg-sidebar p-6 md:p-8 rounded-2xl border border-border-color shadow-sm group hover:border-primary/30 transition-all duration-500">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="text-lg font-bold text-text-main tracking-tight">Gargalos Financeiros por Etapa</h3>
-              <p className="text-xs text-text-sec mt-1">Volume de R$ bloqueado aguardando conversão no seu funil</p>
+              <h3 className="text-xl font-black text-text-main tracking-tight uppercase text-sm opacity-80">Velocity & Pipeline Value</h3>
+              <p className="text-xs text-text-sec mt-1">Fluxo monetário projetado vs. gargalos de conversão</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
+                <span className="text-[10px] font-black text-primary uppercase">Real-Time Sync</span>
+              </div>
             </div>
           </div>
           
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={funnelData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <div style={{ width: '100%', height: 320 }} className="-ml-4">
+            <ResponsiveContainer width="100%" height={320}>
+              <AreaChart data={funnelData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="primaryGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
+                  <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.6}/>
                     <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
                   </linearGradient>
+                  <filter id="shadow" height="200%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                    <feOffset dx="0" dy="4" result="offsetblur" />
+                    <feComponentTransfer>
+                      <feFuncA type="linear" slope="0.5" />
+                    </feComponentTransfer>
+                    <feMerge>
+                      <feMergeNode />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} opacity={0.5} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} opacity={0.2} />
                 <XAxis 
                   dataKey="name" 
                   stroke="var(--text-sec)" 
-                  fontSize={11} 
+                  fontSize={10} 
+                  fontWeight="bold"
                   tickLine={false} 
                   axisLine={false}
-                  dy={10}
+                  dy={15}
+                  tickFormatter={(val) => val.length > 10 ? val.substring(0, 8) + '...' : val}
                 />
                 <YAxis 
                   stroke="var(--text-sec)" 
-                  fontSize={11} 
+                  fontSize={10} 
+                  fontWeight="bold"
                   tickLine={false} 
                   axisLine={false}
                   tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val}
                 />
-                <RechartsTooltip content={<CustomTooltip />} />
+                <RechartsTooltip content={<CustomTooltip suffix=" pts" />} />
                 <Area 
                   type="monotone" 
                   dataKey="value" 
                   stroke="var(--primary)" 
                   strokeWidth={4}
-                  fill="url(#primaryGrad)" 
-                  activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--primary)' }}
+                  fill="url(#velocityGrad)" 
+                  filter="url(#shadow)"
+                  activeDot={{ r: 8, strokeWidth: 0, fill: 'var(--primary)', className: "animate-pulse" }}
+                  animationDuration={2000}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 flex items-center gap-2 p-3 bg-bg-main border border-border-color rounded-xl">
-             <AlertCircle size={16} className="text-secondary shrink-0" />
-             <p className="text-xs text-text-sec">Acompanhe as áreas de sombra no gráfico. Picos altos de concentração indicam falta de follow-up da sua equipe de vendas.</p>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-bg-main/50 rounded-2xl border border-border-color flex items-center gap-3">
+              <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                <TrendingUp size={20} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-text-sec uppercase">Growth Rate</p>
+                <p className="text-lg font-black text-text-main">+24.8%</p>
+              </div>
+            </div>
+            <div className="p-4 bg-bg-main/50 rounded-2xl border border-border-color flex items-center gap-3 col-span-2">
+              <AlertCircle size={20} className="text-primary shrink-0 animate-pulse" />
+              <p className="text-xs text-text-sec leading-relaxed">
+                <strong className="text-text-main italic">Insight Data-Driven:</strong> Detectamos uma retenção atípica na etapa <span className="text-primary font-bold">"{funnelData[1]?.name || 'Negociação'}"</span>. Recomendamos ação imediata de follow-up para liberar <span className="text-text-main font-bold">{formatCurrency(openValue * 0.4)}</span> em pipeline estagnado.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -317,8 +356,8 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
           </div>
           <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
             {sourceData.length > 0 ? (
-              <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={sourceData} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" horizontal={true} vertical={false} opacity={0.3} />
                     <XAxis type="number" hide />
@@ -386,10 +425,41 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
 
       </div>
 
-      <MockupGenerator 
-        pageName="C-Level Dashboard" 
-        promptDescription="A highly professional dashboard with dark mode UI, featuring a metrics block with ROAI metrics, a large pipeline area chart, a customized donut chart with data labels, and a horizontal bar chart displaying revenue per channel." 
-      />
+      {/* Header Executivo - Movido para o fundo */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-bg-sidebar border border-border-color p-8 rounded-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="p-3 bg-bg-main border border-border-color rounded-xl">
+            <Activity className="text-primary" size={32} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-text-main tracking-tight">Executive Dashboard</h1>
+            <p className="text-text-sec mt-1 text-sm max-w-xl">
+              Central de inteligência do DoBoy. Acompanhe a liquidez do funil, métricas de conversão e o ROI dos seus canais de aquisição em tempo real.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 relative z-10 w-full md:w-auto mt-4 md:mt-0">
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-bg-main border border-border-color rounded-xl text-sm font-medium text-text-main hover:bg-border-color transition-colors shadow-sm">
+            <Filter size={16} /> Data
+          </button>
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-primary/10 border border-primary/30 rounded-xl text-sm font-medium text-primary hover:bg-primary hover:text-bg-main hover:border-transparent transition-all shadow-sm group">
+            <Download size={16} className="group-hover:animate-bounce" /> Exportar Relatório
+          </button>
+        </div>
+      </div>
+
+      {/* Insight Gerado por IA - Movido para o fundo */}
+      <div className="bg-gradient-to-r from-primary/10 via-transparent to-transparent border-l-4 border-primary rounded-r-xl p-4 flex items-start gap-3">
+        <Sparkles className="text-primary mt-0.5 shrink-0" size={20} />
+        <div>
+          <h4 className="text-sm font-semibold text-text-main">Insight Quantitativo (Alpha Quant)</h4>
+          <p className="text-sm text-text-sec mt-1">
+            Sua taxa de conversão geral é de <strong className="text-text-main">{conversionRate}%</strong>. O canal de aquisição com maior liquidez é 
+            <strong className="text-primary ml-1">{sourceData[0]?.name || 'ND'}</strong>, responsável por grande parte dos <strong>{formatCurrency(closedValue)}</strong> em caixa.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

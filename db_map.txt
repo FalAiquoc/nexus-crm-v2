@@ -1,0 +1,47 @@
+[dotenv@17.3.1] injecting env (8) from .env -- tip: 🤖 agentic secret storage: https://dotenvx.com/as2
+--- TABLES ---
+companies, leads, pipelines, stages, deals, users, settings, appointments, subscriptions, plans, business_hours
+
+--- COLUMNS FOR companies ---
+id (text), name (character varying), cnpj (character varying), segment (character varying), size (character varying), address (jsonb), created_at (timestamp without time zone)
+Total Rows: 0
+
+--- COLUMNS FOR leads ---
+id (text), name (character varying), email (character varying), phone (character varying), source (character varying), score (integer), status (character varying), company_id (text), custom_fields (jsonb), created_at (timestamp without time zone)
+Total Rows: 59
+
+--- COLUMNS FOR pipelines ---
+id (text), name (character varying), is_default (boolean), created_at (timestamp without time zone)
+Total Rows: 1
+
+--- COLUMNS FOR stages ---
+id (text), pipeline_id (text), name (character varying), sort_order (integer), required_fields (jsonb)
+Total Rows: 6
+
+--- COLUMNS FOR deals ---
+id (text), title (character varying), value (numeric), lead_id (text), stage_id (text), owner_id (text), probability (integer), expected_close_date (date), custom_fields (jsonb), created_at (timestamp without time zone)
+Total Rows: 0
+
+--- COLUMNS FOR users ---
+id (text), name (character varying), email (character varying), password (character varying), role (character varying), created_at (timestamp without time zone), status (character varying), instance_id (uuid), id (uuid), aud (character varying), role (character varying), email (character varying), encrypted_password (character varying), email_confirmed_at (timestamp with time zone), invited_at (timestamp with time zone), confirmation_token (character varying), confirmation_sent_at (timestamp with time zone), recovery_token (character varying), recovery_sent_at (timestamp with time zone), email_change_token_new (character varying), email_change (character varying), email_change_sent_at (timestamp with time zone), last_sign_in_at (timestamp with time zone), raw_app_meta_data (jsonb), raw_user_meta_data (jsonb), is_super_admin (boolean), created_at (timestamp with time zone), updated_at (timestamp with time zone), phone (text), phone_confirmed_at (timestamp with time zone), phone_change (text), phone_change_token (character varying), phone_change_sent_at (timestamp with time zone), confirmed_at (timestamp with time zone), email_change_token_current (character varying), email_change_confirm_status (smallint), banned_until (timestamp with time zone), reauthentication_token (character varying), reauthentication_sent_at (timestamp with time zone), is_sso_user (boolean), deleted_at (timestamp with time zone), is_anonymous (boolean)
+Total Rows: 2
+
+--- COLUMNS FOR settings ---
+key (character varying), value (text), updated_at (timestamp without time zone)
+Total Rows: 2
+
+--- COLUMNS FOR appointments ---
+id (text), client_id (text), user_id (text), title (character varying), start_time (timestamp without time zone), end_time (timestamp without time zone), status (character varying), notes (text), created_at (timestamp without time zone)
+Total Rows: 0
+
+--- COLUMNS FOR subscriptions ---
+id (text), client_id (text), plan_id (text), status (character varying), next_billing_date (date), last_billing_date (date), auto_renew (boolean), created_at (timestamp without time zone)
+Total Rows: 0
+
+--- COLUMNS FOR plans ---
+id (text), name (character varying), description (text), price (numeric), billing_interval (character varying), created_at (timestamp without time zone)
+Total Rows: 4
+
+--- COLUMNS FOR business_hours ---
+day_of_week (integer), open_time (time without time zone), close_time (time without time zone), is_closed (boolean)
+Total Rows: 7

@@ -10,17 +10,17 @@ export default {
     },
     extend: {
       colors: {
-        primary: "#D4AF37",
-        secondary: "#F3E5AB",
-        "bg-main": "#0A0A0A",
-        "bg-sidebar": "#121212",
-        "bg-card": "#1A1A1A",
-        "text-main": "#F0EAD6",
-        "text-sec": "#9A9A9A",
-        "border-color": "#2A2A2A",
-        "hover-color": "#D4AF37",
-        "grad-start": "#B8860B",
-        "grad-end": "#D4AF37"
+        primary: "var(--primary)",
+        secondary: "var(--secondary)",
+        "bg-main": "var(--bg-main)",
+        "bg-sidebar": "var(--bg-sidebar)",
+        "bg-card": "var(--bg-card)",
+        "text-main": "var(--text-main)",
+        "text-sec": "var(--text-sec)",
+        "border-color": "var(--border-color)",
+        "hover-color": "var(--hover-color)",
+        "grad-start": "var(--grad-start)",
+        "grad-end": "var(--grad-end)"
       }
     },
   },

@@ -396,6 +396,43 @@ async function startServer() {
     }
   });
 
+  // Admin Simulation Controls
+  app.post("/api/admin/clear-mock-data", authenticate, adminOnly, async (req, res) => {
+    try {
+      await db.prepare("DELETE FROM subscriptions").run();
+      await db.prepare("DELETE FROM appointments").run();
+      await db.prepare("DELETE FROM leads").run();
+      await db.prepare("DELETE FROM access_requests").run();
+      res.json({ success: true, message: "Dados de simulação removidos." });
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao limpar dados" });
+    }
+  });
+
+  app.post("/api/admin/seed-mock-data", authenticate, adminOnly, async (req, res) => {
+    try {
+      const names = ["Carlos Mendes", "Ana Paula Silva", "Roberto Almeida", "Fernanda Costa", "Lucas Oliveira"];
+      const statuses = ["Novo Lead", "Contato Inicial", "Proposta Enviada", "Negociação", "Fechado"];
+      const sources = ["Instagram", "Indicação", "Google Ads", "Facebook"];
+      
+      for (let i = 0; i < 10; i++) {
+        const id = Math.random().toString(36).substr(2, 9);
+        const name = names[Math.floor(Math.random() * names.length)];
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const source = sources[Math.floor(Math.random() * sources.length)];
+        const value = Math.floor(Math.random() * 5000) + 100;
+        
+        await db.prepare(`
+          INSERT INTO leads (id, name, email, phone, source, status, custom_fields)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `).run(id, `${name} ${i}`, `${name.toLowerCase().replace(' ', '')}@email.com`, '(11) 99999-0000', source, status, JSON.stringify({ value, notes: 'Lead de simulação' }));
+      }
+      res.json({ success: true, message: "Dados de simulação injetados." });
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao injetar dados" });
+    }
+  });
+
   // Bloqueio de Fallback para rotas de API não encontradas
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: "Endpoint de API não encontrado" });

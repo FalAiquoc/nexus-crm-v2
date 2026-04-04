@@ -13,7 +13,9 @@ import {
   LogOut,
   Calendar,
   CreditCard,
-  X
+  X,
+  Monitor,
+  PanelLeftClose
 } from 'lucide-react';
 import { Page } from '../types';
 
@@ -22,26 +24,41 @@ interface SidebarProps {
   onNavigate: (page: Page) => void;
   onLogout: () => void;
   workspaceType?: 'general' | 'barbershop' | 'law_firm';
+  sidebarMode?: 'fixed' | 'auto' | 'minimized';
+  setSidebarMode?: (mode: 'fixed' | 'auto' | 'minimized') => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   isMobileMenuOpen: boolean;
   onCloseMobileMenu: () => void;
   user: any;
   pendingRequestsCount?: number;
+  businessName?: string;
 }
+
 
 export function Sidebar({ 
   currentPage, 
   onNavigate, 
   onLogout, 
   workspaceType = 'general',
+  user,
+  sidebarMode = 'auto',
+  setSidebarMode,
   isCollapsed,
-  onToggleCollapse,
+  onToggleCollapse, 
   isMobileMenuOpen,
   onCloseMobileMenu,
-  user,
-  pendingRequestsCount = 0
+  pendingRequestsCount = 0,
+  businessName = workspaceType === 'barbershop' ? 'Central Barber DoBoy' : 'CRM DoBoy'
 }: SidebarProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Lógica cirúrgica: no modo auto, ignoramos isCollapsed para evitar travas
+  const effectiveCollapsed = 
+    sidebarMode === 'auto' ? !isHovered : 
+    sidebarMode === 'minimized' ? true : 
+    isCollapsed;
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -122,10 +139,16 @@ export function Sidebar({
               className="fixed inset-y-0 left-0 w-[280px] bg-bg-sidebar border-r border-border-color z-[70] md:hidden flex flex-col"
             >
               <div className="p-6 border-b border-border-color flex items-center justify-between">
-                <h1 className="text-xl font-bold text-primary tracking-wide flex items-center gap-3 uppercase">
-                  <Hexagon size={24} className="text-secondary" />
-                  {workspaceType === 'barbershop' ? 'Central Barber' : 'Nexus CRM'}
-                </h1>
+                <div className="flex items-center gap-2 max-w-[120px] xs:max-w-none">
+                  <div className="w-8 h-8 bg-gradient-to-br from-grad-start to-grad-end rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0 shadow-lg shadow-primary/20">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-bg-main">
+                      <path d="M12 2L17.5 5.5L22 12L17.5 18.5L12 22L6.5 18.5L2 12L6.5 5.5L12 2Z" />
+                    </svg>
+                  </div>
+                  <span className="text-text-main font-bold text-sm truncate uppercase tracking-tight">
+                    {businessName}
+                  </span>
+                </div>
                 <button 
                   onClick={onCloseMobileMenu}
                   className="p-2 text-text-sec hover:text-text-main hover:bg-bg-card rounded-lg transition-colors"
@@ -133,6 +156,7 @@ export function Sidebar({
                   <X size={20} />
                 </button>
               </div>
+
 
               <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                 {visibleItems.map((item) => {
@@ -160,13 +184,33 @@ export function Sidebar({
                 })}
               </nav>
 
-              <div className="p-4 border-t border-border-color">
+              <div className="p-4 border-t border-border-color space-y-2">
+                <div className="flex items-center gap-1 bg-bg-main/50 p-1 rounded-lg border border-border-color">
+                  {(['fixed', 'auto', 'minimized'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSidebarMode?.(mode);
+                      }}
+                      title={mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${
+                        sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
+                      }`}
+                    >
+                      {mode === 'fixed' && <Monitor size={14} />}
+                      {mode === 'auto' && <Zap size={14} />}
+                      {mode === 'minimized' && <PanelLeftClose size={14} />}
+                    </button>
+                  ))}
+                </div>
+
                 <button 
                   onClick={onLogout}
-                  className="w-full flex items-center space-x-4 px-4 py-3 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all duration-200 font-medium"
+                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-amber-500/80 hover:text-amber-500 hover:bg-amber-500/10 transition-all font-bold text-xs"
                 >
-                  <LogOut size={20} />
-                  <span>Sair da Conta</span>
+                  <LogOut size={18} />
+                  <span className="whitespace-nowrap">Encerrar Sessão</span>
                 </button>
               </div>
             </motion.div>
@@ -175,13 +219,24 @@ export function Sidebar({
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      <div className={`${isCollapsed ? 'w-20' : 'w-64'} hidden md:flex h-screen bg-bg-sidebar border-r border-border-color flex-col shrink-0 transition-all duration-300 ease-in-out relative`}>
-        <div className={`p-6 ${isCollapsed ? 'px-4' : 'px-8'} pb-6 border-b border-border-color flex items-center justify-between`}>
-          <h1 className={`text-2xl font-bold text-primary tracking-wide flex items-center gap-3 uppercase overflow-hidden transition-all duration-300 ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-            <Hexagon size={24} className="text-secondary shrink-0" />
-            {workspaceType === 'barbershop' ? 'Central Barber' : 'Nexus CRM'}
-          </h1>
-          {isCollapsed && <Hexagon size={24} className="text-secondary mx-auto" />}
+      <div 
+        onMouseEnter={() => sidebarMode === 'auto' && setIsHovered(true)}
+        onMouseLeave={() => sidebarMode === 'auto' && setIsHovered(false)}
+        className={`${effectiveCollapsed ? 'w-20' : 'w-64'} hidden md:flex h-screen bg-bg-sidebar border-r border-border-color flex-col shrink-0 transition-all duration-300 ease-in-out relative ${sidebarMode === 'auto' && isCollapsed ? 'z-50 shadow-2xl' : ''}`}
+      >
+        <div className={`p-6 ${effectiveCollapsed ? 'px-4' : 'px-8'} pb-6 border-b border-border-color flex items-center justify-between`}>
+          <div className={`flex items-center gap-3 transition-all duration-300 ${effectiveCollapsed ? 'justify-center w-full' : 'w-auto'}`}>
+            <div className="w-8 h-8 bg-gradient-to-br from-grad-start to-grad-end rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0 shadow-lg shadow-primary/20">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-bg-main">
+                <path d="M12 2L17.5 5.5L22 12L17.5 18.5L12 22L6.5 18.5L2 12L6.5 5.5L12 2Z" />
+              </svg>
+            </div>
+            {!effectiveCollapsed && (
+              <h1 className="text-2xl font-bold text-primary tracking-wide uppercase truncate">
+                {businessName}
+              </h1>
+            )}
+          </div>
         </div>
         
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
@@ -192,7 +247,7 @@ export function Sidebar({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id as Page)}
-                title={isCollapsed ? item.label : ''}
+                title={effectiveCollapsed ? item.label : ''}
                 className={`w-full flex items-center space-x-4 px-3 py-3 rounded-lg transition-all duration-200 font-medium group ${
                   isActive
                     ? 'bg-primary/10 text-primary border border-primary/20'
@@ -202,12 +257,12 @@ export function Sidebar({
                 <div className="relative">
                   <Icon size={20} className={`${isActive ? 'text-primary' : ''} shrink-0`} strokeWidth={isActive ? 2.5 : 2} />
                   {item.id === 'users' && pendingRequestsCount > 0 && (
-                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-bg-sidebar transition-all ${isCollapsed ? 'scale-110' : 'scale-100'}`} />
+                    <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-bg-sidebar transition-all ${effectiveCollapsed ? 'scale-110' : 'scale-100'}`} />
                   )}
                 </div>
-                <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0 translate-x-4' : 'opacity-100 w-auto translate-x-0'}`}>
+                <span className={`whitespace-nowrap transition-all duration-300 ${effectiveCollapsed ? 'opacity-0 w-0 translate-x-4' : 'opacity-100 w-auto translate-x-0'}`}>
                   {item.label}
-                  {item.id === 'users' && pendingRequestsCount > 0 && !isCollapsed && (
+                  {item.id === 'users' && pendingRequestsCount > 0 && !effectiveCollapsed && (
                     <span className="ml-2 px-1.5 py-0.5 bg-rose-500 text-[10px] text-white rounded-md font-bold">
                       {pendingRequestsCount}
                     </span>
@@ -218,14 +273,32 @@ export function Sidebar({
           })}
         </nav>
         
-        <div className="p-3 border-t border-border-color">
+        <div className="p-3 border-t border-border-color space-y-2">
+          {!effectiveCollapsed && (
+            <div className="flex items-center gap-1 bg-bg-main/50 p-1 rounded-lg border border-border-color">
+              {(['fixed', 'auto', 'minimized'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setSidebarMode?.(mode)}
+                  title={mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${
+                    sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
+                  }`}
+                >
+                  {mode === 'fixed' && <Monitor size={14} />}
+                  {mode === 'auto' && <Zap size={14} />}
+                  {mode === 'minimized' && <PanelLeftClose size={14} />}
+                </button>
+              ))}
+            </div>
+          )}
           <button 
             onClick={onLogout}
-            title={isCollapsed ? 'Sair' : ''}
+            title={effectiveCollapsed ? 'Sair' : ''}
             className={`w-full flex items-center space-x-4 px-3 py-3 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all duration-200 font-medium group`}
           >
             <LogOut size={20} className="shrink-0" />
-            <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0 translate-x-4' : 'opacity-100 w-auto translate-x-0'}`}>
+            <span className={`whitespace-nowrap transition-all duration-300 ${effectiveCollapsed ? 'opacity-0 w-0 translate-x-4' : 'opacity-100 w-auto translate-x-0'}`}>
               Sair
             </span>
           </button>

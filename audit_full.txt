@@ -1,0 +1,286 @@
+[dotenv@17.3.1] injecting env (8) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+--- STAGES DATA ---
+[
+  {
+    "id": "s1",
+    "pipeline_id": "p1",
+    "name": "Novo Lead",
+    "sort_order": 1,
+    "required_fields": []
+  },
+  {
+    "id": "s2",
+    "pipeline_id": "p1",
+    "name": "Em Contato",
+    "sort_order": 2,
+    "required_fields": []
+  },
+  {
+    "id": "s3",
+    "pipeline_id": "p1",
+    "name": "Qualificado",
+    "sort_order": 3,
+    "required_fields": []
+  },
+  {
+    "id": "s4",
+    "pipeline_id": "p1",
+    "name": "Proposta",
+    "sort_order": 4,
+    "required_fields": []
+  },
+  {
+    "id": "s5",
+    "pipeline_id": "p1",
+    "name": "Negociação",
+    "sort_order": 5,
+    "required_fields": []
+  },
+  {
+    "id": "s6",
+    "pipeline_id": "p1",
+    "name": "Fechado",
+    "sort_order": 6,
+    "required_fields": []
+  }
+]
+
+--- LEADS STATUS DATA ---
+[
+  {
+    "name": "Dyjann",
+    "status": "Cliente Ativo"
+  },
+  {
+    "name": "Ana Silva",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Carlos Santos",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Marina Costa",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 1 2026-01",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 2 2026-01",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 3 2026-01",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 4 2026-01",
+    "status": "Fechado"
+  },
+  {
+    "name": "Cliente Simulado 5 2026-01",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 6 2026-01",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 7 2026-01",
+    "status": "Fechado"
+  },
+  {
+    "name": "Cliente Simulado 8 2026-01",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 9 2026-01",
+    "status": "Fechado"
+  },
+  {
+    "name": "Cliente Simulado 10 2026-01",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 11 2026-01",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 12 2026-01",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 1 2026-02",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 2 2026-02",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 3 2026-02",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 4 2026-02",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 5 2026-02",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 6 2026-02",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Cliente Simulado 7 2026-02",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 8 2026-02",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 9 2026-02",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Cliente Simulado 10 2026-02",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 11 2026-02",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 12 2026-02",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 13 2026-02",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Cliente Simulado 14 2026-02",
+    "status": "Fechado"
+  },
+  {
+    "name": "Cliente Simulado 15 2026-02",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 1 2026-03",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 2 2026-03",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 3 2026-03",
+    "status": "Fechado"
+  },
+  {
+    "name": "Cliente Simulado 4 2026-03",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 5 2026-03",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Cliente Simulado 6 2026-03",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 7 2026-03",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 8 2026-03",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 9 2026-03",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 10 2026-03",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 11 2026-03",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Cliente Simulado 12 2026-03",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 13 2026-03",
+    "status": "Novo Lead"
+  },
+  {
+    "name": "Cliente Simulado 14 2026-03",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 15 2026-03",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 16 2026-03",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 17 2026-03",
+    "status": "Perdido"
+  },
+  {
+    "name": "Cliente Simulado 18 2026-03",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 1 2026-04",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 2 2026-04",
+    "status": "Qualificado"
+  },
+  {
+    "name": "Cliente Simulado 3 2026-04",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 4 2026-04",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 5 2026-04",
+    "status": "Proposta"
+  },
+  {
+    "name": "Cliente Simulado 6 2026-04",
+    "status": "Negociação"
+  },
+  {
+    "name": "Cliente Simulado 7 2026-04",
+    "status": "Fechado"
+  },
+  {
+    "name": "Cliente Simulado 8 2026-04",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 9 2026-04",
+    "status": "Em Contato"
+  },
+  {
+    "name": "Cliente Simulado 10 2026-04",
+    "status": "Qualificado"
+  }
+]

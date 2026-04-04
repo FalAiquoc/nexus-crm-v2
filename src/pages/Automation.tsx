@@ -5,7 +5,8 @@ import { Workflow } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
 import * as Icons from 'lucide-react';
 
-const ai = new GoogleGenAI({ apiKey: (import.meta.env.VITE_GEMINI_API_KEY || "") as string });
+const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
+const ai = new GoogleGenAI({ apiKey: apiKey as string });
 
 type StepType = 'trigger' | 'action' | 'condition' | 'delay' | string;
 
@@ -110,11 +111,11 @@ export function Automation() {
 
   // Load user templates and custom types from localStorage
   useEffect(() => {
-    const savedTemplates = localStorage.getItem('nexus_user_templates');
+    const savedTemplates = localStorage.getItem('doboy_user_templates');
     if (savedTemplates) {
       setTemplates([...defaultTemplates, ...JSON.parse(savedTemplates)]);
     }
-    const savedTypes = localStorage.getItem('nexus_custom_types');
+    const savedTypes = localStorage.getItem('doboy_custom_types');
     if (savedTypes) {
       setCustomTypes(JSON.parse(savedTypes));
     }
@@ -226,8 +227,8 @@ export function Automation() {
           prompt: globalPrompt,
           steps: mainW.steps as WorkflowStep[]
         };
-        const userTemplates = JSON.parse(localStorage.getItem('nexus_user_templates') || '[]');
-        localStorage.setItem('nexus_user_templates', JSON.stringify([newTemplate, ...userTemplates].slice(0, 10)));
+        const userTemplates = JSON.parse(localStorage.getItem('doboy_user_templates') || '[]');
+        localStorage.setItem('doboy_user_templates', JSON.stringify([newTemplate, ...userTemplates].slice(0, 10)));
         setTemplates([...defaultTemplates, newTemplate, ...userTemplates].slice(0, 13));
       }
 
@@ -299,9 +300,9 @@ export function Automation() {
         steps: generatedSteps
       };
       
-      const userTemplates = JSON.parse(localStorage.getItem('nexus_user_templates') || '[]');
+      const userTemplates = JSON.parse(localStorage.getItem('doboy_user_templates') || '[]');
       const updatedUserTemplates = [newTemplate, ...userTemplates].slice(0, 10); // Keep last 10
-      localStorage.setItem('nexus_user_templates', JSON.stringify(updatedUserTemplates));
+      localStorage.setItem('doboy_user_templates', JSON.stringify(updatedUserTemplates));
       setTemplates([...defaultTemplates, ...updatedUserTemplates]);
     }
 
@@ -401,22 +402,23 @@ export function Automation() {
             <p className="text-text-sec mt-1">Crie regras de negócio com o poder da Inteligência Artificial.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={() => setIsGlobalCreatorOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-primary/10 border border-primary/20 rounded-xl text-primary font-bold hover:bg-primary/20 transition-all shadow-sm group"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-primary/10 border border-primary/20 rounded-xl text-primary font-bold hover:bg-primary/20 transition-all shadow-sm group"
           >
             <Sparkles size={20} className="group-hover:animate-pulse" />
             Criar com IA
           </button>
           <button 
             onClick={() => openBuilder()}
-            className="flex items-center gap-2 px-6 py-3 bg-primary rounded-xl text-bg-main font-bold hover:bg-secondary transition-all shadow-lg shadow-primary/10 group"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-primary rounded-xl text-bg-main font-bold hover:bg-secondary transition-all shadow-lg shadow-primary/10 group"
           >
             <Plus size={20} />
             Novo Fluxo
           </button>
         </div>
+
       </div>
 
       {/* Stats Quick View */}
