@@ -13,11 +13,10 @@ const WORKSPACE_TYPES = [
 ];
 
 export function Settings() {
-  const { settings, updateSettings, setSettings, user, refreshData } = useApp();
+  const { settings, updateSettings, setSettings, user, refreshData, isSimulationMode, setIsSimulationMode } = useApp();
   const { showToast } = useToast();
   const [activeTheme, setActiveTheme] = useState(Object.keys(PRESET_THEMES)[0]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSimulationMode, setIsSimulationMode] = useState(false);
 
   useEffect(() => {
     const themeName = settings.active_theme || localStorage.getItem('doboy_theme');
@@ -53,7 +52,7 @@ export function Settings() {
   };
 
   const handleClearMockData = async () => {
-    if (!window.confirm('Tem certeza que deseja apagar TODOS os dados de simulação? Esta ação não pode ser desfeita.')) return;
+    if (!window.confirm('Tem certeza que deseja apagar os dados de simulação? Seus dados REAIS não serão afetados.')) return;
     
     try {
       const token = localStorage.getItem('doboy_token');
@@ -62,8 +61,9 @@ export function Settings() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast('Dados de simulação removidos com sucesso!', 'success');
-        refreshData();
+        showToast('Dados de simulação removidos! Ocultando Modo Simulação.', 'success');
+        setIsSimulationMode(false); // Desativa globalmente
+        await refreshData();
       } else {
         showToast('Erro ao limpar dados', 'error');
       }
@@ -80,8 +80,9 @@ export function Settings() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast('Dados de simulação injetados com sucesso!', 'success');
-        refreshData();
+        showToast('Dados Profissionais Injetados! Ativando Modo Simulação.', 'success');
+        setIsSimulationMode(true); // Ativa globalmente
+        await refreshData();
       } else {
         showToast('Erro ao injetar dados', 'error');
       }
@@ -92,16 +93,6 @@ export function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto w-full space-y-8">
-      {isSimulationMode && (
-        <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex items-center gap-3 text-amber-500 animate-pulse">
-          <AlertTriangle size={24} />
-          <div>
-            <h3 className="font-bold text-sm uppercase">Modo de Simulação Ativo</h3>
-            <p className="text-xs">Os dados exibidos são fictícios e apenas para testes. Não altere dados reais neste modo.</p>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SettingsIcon className="text-primary" size={28} />
