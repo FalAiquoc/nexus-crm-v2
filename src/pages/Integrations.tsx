@@ -1,428 +1,323 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Link2, 
-  Search, 
-  Calendar, 
-  MessageCircle, 
-  Send, 
-  Instagram, 
-  Facebook, 
-  Target, 
+  MessageSquare, 
+  Smartphone, 
+  Settings as SettingsIcon, 
   CheckCircle2, 
-  Plus,
-  ArrowRight,
+  XCircle, 
+  QrCode, 
+  RefreshCw, 
+  Plus, 
+  Trash2,
+  Zap,
+  Bot,
   ExternalLink,
-  Bot
+  Loader2,
+  Database,
+  Unplug
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
-import { IntegrationModal, IntegrationModalConfig } from '../components/IntegrationModal';
+import { useToast } from '../context/ToastContext';
+import { MockupGenerator } from '../components/MockupGenerator';
 
-type IntegrationStatus = 'connected' | 'disconnected' | 'syncing' | 'error';
-type Category = 'all' | 'ai' | 'communication' | 'marketing' | 'productivity';
-
-interface IntegrationDef {
-  id: string; // The primary ID to associate
-  name: string;
-  description: string;
-  category: Category;
-  icon: React.ElementType;
-  color: string;
-  checkSettingsKey: string; // The key in settings to check if connected
-  modalConfig: IntegrationModalConfig;
+interface WhatsAppInstance {
+  instanceName: string;
+  status: 'connected' | 'disconnected' | 'connecting';
+  type: string;
 }
 
-const integrationDefinitions: IntegrationDef[] = [
-  // --- AI / LLMs ---
-  {
-    id: 'google-gemini',
-    name: 'Google Gemini AI',
-    description: 'Inteligência Artificial poderosa do Google. Padrão nativo com amplo Free Tier para startups.',
-    category: 'ai',
-    icon: Bot,
-    color: 'text-blue-500',
-    checkSettingsKey: 'gemini_api_key',
-    modalConfig: {
-      id: 'google-gemini',
-      name: 'Google Gemini',
-      icon: Bot,
-      color: 'text-blue-500',
-      type: 'api_key',
-      instructions: 'Para utilizar o Google Gemini gratuitamente ou na versão Pro, acesse o Google AI Studio, crie um novo projeto e gere sua API Key.',
-      docsUrl: 'https://aistudio.google.com/app/apikey',
-      fields: [
-        { key: 'gemini_api_key', label: 'API Key do Google Gemini', type: 'password', placeholder: 'AIzaSy...' }
-      ]
-    }
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI (ChatGPT)',
-    description: 'Integração com GPT-4o e GPT-3.5 para atendimento avançado e processamento de linguagem natural.',
-    category: 'ai',
-    icon: Bot,
-    color: 'text-emerald-500',
-    checkSettingsKey: 'openai_api_key',
-    modalConfig: {
-      id: 'openai',
-      name: 'OpenAI ChatGPT',
-      icon: Bot,
-      color: 'text-emerald-500',
-      type: 'api_key',
-      instructions: 'Acesse a plataforma de desenvolvedores da OpenAI, adicione créditos à sua conta (Freemium/Pay-as-you-go) e crie uma nova Secret Key.',
-      docsUrl: 'https://platform.openai.com/api-keys',
-      fields: [
-        { key: 'openai_api_key', label: 'OpenAI Secret Key', type: 'password', placeholder: 'sk-proj-...' }
-      ]
-    }
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic (Claude)',
-    description: 'Integração com Claude 3.5 Sonnet/Opus. Excelente para análise de contratos e funis jurídicos.',
-    category: 'ai',
-    icon: Bot,
-    color: 'text-orange-500',
-    checkSettingsKey: 'anthropic_api_key',
-    modalConfig: {
-      id: 'anthropic',
-      name: 'Anthropic Claude',
-      icon: Bot,
-      color: 'text-orange-500',
-      type: 'api_key',
-      instructions: 'Acesse o console da Anthropic e gere sua API Key. Recomendado para análise textual complexa.',
-      docsUrl: 'https://console.anthropic.com/settings/keys',
-      fields: [
-        { key: 'anthropic_api_key', label: 'Anthropic API Key', type: 'password', placeholder: 'sk-ant-...' }
-      ]
-    }
-  },
-  {
-    id: 'groq',
-    name: 'Groq (Open Source / Llama 3)',
-    description: 'Incrível velocidade utilizando modelos abertos como Llama 3 via LPU. Possui Free Tier gigante.',
-    category: 'ai',
-    icon: Bot,
-    color: 'text-rose-500',
-    checkSettingsKey: 'groq_api_key',
-    modalConfig: {
-      id: 'groq',
-      name: 'Groq (Llama Models)',
-      icon: Bot,
-      color: 'text-rose-500',
-      type: 'api_key',
-      instructions: 'GroqCloud oferece inferência ultra-rápida gratuita (com limites generosos) para Llama, Mixtral e Gemma. Acesse o console logando com Github ou Google e crie sua chave.',
-      docsUrl: 'https://console.groq.com/keys',
-      fields: [
-        { key: 'groq_api_key', label: 'Groq API Key', type: 'password', placeholder: 'gsk_...' }
-      ]
-    }
-  },
-
-  // --- COMMUNICATION ---
-  {
-    id: 'whatsapp-evo',
-    name: 'WhatsApp Business (Evo)',
-    description: 'Envie mensagens automáticas e atenda clientes diretamente pelo CRM (via Evolution API).',
-    category: 'communication',
-    icon: MessageCircle,
-    color: 'text-emerald-500',
-    checkSettingsKey: 'whatsapp_evo_url',
-    modalConfig: {
-      id: 'whatsapp-evo',
-      name: 'WhatsApp Business',
-      icon: MessageCircle,
-      color: 'text-emerald-500',
-      type: 'webhook',
-      instructions: 'Para integrar o WhatsApp não-oficial, insira a URL da sua Evolution API e o Global API Key (ou chave da instância).',
-      docsUrl: 'https://evolution-api.com',
-      fields: [
-        { key: 'whatsapp_evo_url', label: 'Evolution API URL', type: 'text', placeholder: 'https://api.seudominio.com' },
-        { key: 'whatsapp_evo_key', label: 'API Key (Global/Instância)', type: 'password', placeholder: 'Insira o token...' }
-      ]
-    }
-  },
-  {
-    id: 'instagram',
-    name: 'Instagram Direct',
-    description: 'Responda directs, menções nos stories e automatize o primeiro contato.',
-    category: 'communication',
-    icon: Instagram,
-    color: 'text-pink-500',
-    checkSettingsKey: 'instagram_token',
-    modalConfig: {
-      id: 'instagram',
-      name: 'Instagram Direct',
-      icon: Instagram,
-      color: 'text-pink-500',
-      type: 'oauth',
-      instructions: 'A integração direta via Meta requisita um longo processo ou uma ferramenta parceira terceira. Forneça o Webhook Token.',
-      fields: [
-        { key: 'instagram_token', label: 'Instagram Access Token', type: 'password', placeholder: 'IGQ...' }
-      ]
-    }
-  },
-
-  // --- MARKETING ---
-  {
-    id: 'meta-ads',
-    name: 'Meta Ads',
-    description: 'Capture leads nativos do Facebook e Instagram diretamente para o seu funil.',
-    category: 'marketing',
-    icon: Facebook,
-    color: 'text-blue-600',
-    checkSettingsKey: 'meta_ads_token',
-    modalConfig: {
-      id: 'meta-ads',
-      name: 'Meta Ads',
-      icon: Facebook,
-      color: 'text-blue-600',
-      type: 'api_key',
-      instructions: 'Gere um token de acesso de sistema no App Dashboard do Meta para Facebook Lead Ads.',
-      docsUrl: 'https://developers.facebook.com/docs/marketing-api/',
-      fields: [
-        { key: 'meta_ads_token', label: 'System User Token', type: 'password', placeholder: 'EAAB...' }
-      ]
-    }
-  },
-  
-  // --- PRODUCTIVITY ---
-  {
-    id: 'google-calendar',
-    name: 'Google Calendar',
-    description: 'Sincronize seus agendamentos, reuniões e lembretes bidirecionalmente.',
-    category: 'productivity',
-    icon: Calendar,
-    color: 'text-blue-500',
-    checkSettingsKey: 'gcal_token',
-    modalConfig: {
-      id: 'google-calendar',
-      name: 'Google Calendar',
-      icon: Calendar,
-      color: 'text-blue-500',
-      type: 'oauth',
-      instructions: 'Você precisa autorizar o CRM DoBoy a ler e escrever eventos no seu Google Calendar utilizando contas de serviço ou Oauth2.',
-      fields: [
-        { key: 'gcal_token', label: 'Refresh Token', type: 'password', placeholder: '1//...' }
-      ]
-    }
-  }
-];
-
 export function Integrations() {
-  const { settings, refreshData, updateSettings } = useApp();
-  const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<Category>('all');
-  const [selectedConfig, setSelectedConfig] = useState<IntegrationModalConfig | null>(null);
+  const { settings, updateSettings, isSimulationMode } = useApp();
+  const { showToast } = useToast();
+  const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [activeInstance, setActiveInstance] = useState<string | null>(null);
+
+  // 🔄 Fetch WhatsApp Status
+  const fetchStatus = async () => {
+    // Se estiver em modo simulação, injetamos uma instância fake conectada
+    if (isSimulationMode) {
+      setInstances([{
+        instanceName: 'nexus_v2_simulated',
+        status: 'connected',
+        type: 'WHATSAPP-BAILEYS'
+      }]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('doboy_token');
+      const res = await fetch('/api/whatsapp/instances', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (Array.isArray(data)) {
+        setInstances(data.map(inst => ({
+          instanceName: inst.instanceName,
+          status: inst.connectionStatus === 'open' ? 'connected' : 'disconnected',
+          type: inst.owner || 'BAILEYS'
+        })));
+      }
+    } catch (err) {
+      console.error("Erro status WA:", err);
+    }
+  };
 
   useEffect(() => {
-    // Ensure we trigger a refresh of settings to get latest keys when opening integrations
-    refreshData();
-  }, []);
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [isSimulationMode]);
 
-  const getStatus = (checkKey: string): IntegrationStatus => {
-    // If we have any value saved for this key, it is connected.
-    if (settings && settings[checkKey]) {
-      return 'connected';
+  const handleConnect = async () => {
+    if (isSimulationMode) {
+      showToast("Modo Simulação: WhatsApp conectado automaticamente.", "success");
+      return;
     }
-    return 'disconnected';
-  };
 
-  const filteredIntegrations = integrationDefinitions.filter(int => {
-    const matchesSearch = int.name.toLowerCase().includes(search.toLowerCase()) || 
-                          int.description.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || int.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleConnectClick = (config: IntegrationModalConfig) => {
-    setSelectedConfig(config);
-  };
-
-  const handleSuccess = (id: string) => {
-    refreshData(); // Refresh from API to update local state so badges change to connected
-  };
-
-  // Only to clear from DB to visually show disconnection
-  const handleDisconnect = async (checkKeys: string[]) => {
-    if (confirm("Tem certeza que deseja desconectar? Suas conversas ou automações podem parar.")) {
-      try {
-        // Here we ideally send a DEL or update to empty for all keys involved
-        for (const key of checkKeys) {
-            await updateSettings(key, '');
-        }
-        await refreshData();
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao desconectar');
+    setIsGeneratingQR(true);
+    setQrCodeData(null);
+    try {
+      const token = localStorage.getItem('doboy_token');
+      const res = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ instanceName: 'nexus_v2' })
+      });
+      const data = await res.json();
+      
+      if (data.qrcode?.base64) {
+        setQrCodeData(data.qrcode.base64);
+        setActiveInstance('nexus_v2');
+      } else {
+        showToast("Erro ao gerar QR Code. Tente novamente.", "error");
       }
+    } catch (err) {
+      showToast("Falha na conexão com a Evolution API", "error");
+    } finally {
+      setIsGeneratingQR(false);
+    }
+  };
+
+  const handleDeleteInstance = async (name: string) => {
+    if (!window.confirm(`Deseja realmente desconectar a instância ${name}?`)) return;
+    
+    try {
+      const token = localStorage.getItem('doboy_token');
+      await fetch(`/api/whatsapp/instance/${name}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      showToast("Instância desconectada.", "success");
+      fetchStatus();
+    } catch (err) {
+      showToast("Erro ao desconectar.", "error");
     }
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12">
-      {/* Header */}
+    <div className="max-w-6xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* 🚀 Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link2 className="text-primary" size={28} />
-          <div>
-            <h1 className="text-3xl font-bold text-text-main tracking-tight">Integrações</h1>
-            <p className="text-text-sec mt-1">Conecte o CRM DoBoy às suas ferramentas, inclusive inteligência artificial.</p>
+        <div>
+          <h2 className="text-2xl md:text-3xl font-semibold text-text-main tracking-tight">Hub de Integrações</h2>
+          <p className="text-text-sec text-sm mt-1">Conecte o Nexus CRM às ferramentas que você já utiliza.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* 📱 WhatsApp Evolution Section */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="bg-bg-sidebar border border-border-color rounded-3xl overflow-hidden shadow-xl">
+            <div className="p-6 border-b border-border-color bg-bg-sidebar/50 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-[#25D366]/10 text-[#25D366]">
+                  <Smartphone size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-text-main uppercase tracking-widest text-sm">WhatsApp Business</h3>
+                  <p className="text-xs text-text-sec">Via Evolution API v2</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isSimulationMode && (
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-bold border border-amber-500/20 uppercase">
+                    <Database size={10} /> Simulado
+                  </span>
+                )}
+                <button 
+                  onClick={fetchStatus}
+                  className="p-2 rounded-xl border border-border-color hover:bg-bg-main transition-colors"
+                >
+                  <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8">
+              {instances.length > 0 ? (
+                <div className="space-y-4">
+                  {instances.map((inst, i) => (
+                    <div key={i} className="flex items-center justify-between p-5 rounded-2xl bg-bg-main/50 border border-border-color group hover:border-primary/30 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-lg ${inst.status === 'connected' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                          <MessageSquare size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-text-main text-sm">{inst.instanceName}</p>
+                          <p className="text-[10px] text-text-sec uppercase tracking-widest">{inst.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <span className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${
+                            inst.status === 'connected' ? 'text-emerald-500' : 'text-red-500'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${inst.status === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            {inst.status === 'connected' ? 'Conectado' : 'Desconectado'}
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteInstance(inst.instanceName)}
+                          className="p-2 rounded-lg text-text-sec hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Unplug size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 space-y-6">
+                  <div className="mx-auto w-20 h-20 rounded-full bg-bg-main flex items-center justify-center border-2 border-dashed border-border-color">
+                    <Smartphone className="text-text-sec/30" size={32} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-text-main mb-1 text-lg">Nenhuma conexão ativa</h4>
+                    <p className="text-sm text-text-sec max-w-xs mx-auto">Conecte seu WhatsApp para habilitar notificações e chatbots inteligentes.</p>
+                  </div>
+                  <button 
+                    onClick={handleConnect}
+                    disabled={isGeneratingQR}
+                    className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-bg-main rounded-2xl font-bold hover:bg-secondary transition-all shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-50"
+                  >
+                    {isGeneratingQR ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
+                    PAREAR WHATSAPP AGORA
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 🧩 QR Code Modal / Overlay */}
+          {qrCodeData && (
+            <div className="bg-bg-sidebar border border-primary/30 rounded-3xl p-8 flex flex-col items-center text-center space-y-6 animate-in zoom-in-95">
+              <div className="bg-white p-4 rounded-3xl shadow-2xl">
+                <img src={qrCodeData} alt="WhatsApp QR Code" className="w-64 h-64" />
+              </div>
+              <div className="max-w-xs">
+                <h4 className="font-bold text-text-main text-lg mb-2">Escaneie o QR Code</h4>
+                <p className="text-xs text-text-sec leading-relaxed">Abra o WhatsApp no seu celular, vá em Aparelhos Conectados e aponte a câmera para esta tela.</p>
+              </div>
+              <button 
+                onClick={() => setQrCodeData(null)}
+                className="text-xs font-bold text-text-sec hover:text-primary transition-colors uppercase tracking-widest"
+              >
+                Cancelar Pareamento
+              </button>
+            </div>
+          )}
+
+          {/* 🤖 Chatbot & Automation Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-bg-sidebar border border-border-color p-6 rounded-3xl group hover:border-primary/30 transition-all cursor-pointer">
+              <div className="p-3 w-fit rounded-2xl bg-primary/10 text-primary mb-4">
+                <Bot size={24} />
+              </div>
+              <h4 className="font-bold text-text-main mb-2">Nexus AI Agent</h4>
+              <p className="text-xs text-text-sec leading-relaxed">Inteligência artificial que responde leads automaticamente 24/7 com contexto do seu negócio.</p>
+              <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest">
+                Configurar <ExternalLink size={12} />
+              </div>
+            </div>
+
+            <div className="bg-bg-sidebar border border-border-color p-6 rounded-3xl group hover:border-primary/30 transition-all cursor-pointer">
+              <div className="p-3 w-fit rounded-2xl bg-blue-500/10 text-blue-400 mb-4">
+                <Zap size={24} />
+              </div>
+              <h4 className="font-bold text-text-main mb-2">Fluxos de Automação</h4>
+              <p className="text-xs text-text-sec leading-relaxed">Crie réguas de cobrança, confirmação de agendamentos e boas-vindas sem códigos.</p>
+              <div className="mt-6 flex items-center gap-2 text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+                Explorar <ExternalLink size={12} />
+              </div>
+            </div>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-bg-card border border-border-color rounded-xl text-text-main font-bold hover:bg-hover-color/20 transition-all">
-          <Plus size={20} />
-          Solicitar Integração
-        </button>
-      </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-bg-sidebar p-4 rounded-2xl border border-border-color">
-        <div className="flex overflow-x-auto hide-scrollbar w-full md:w-auto gap-2 pb-2 md:pb-0">
-          {[
-            { id: 'all', label: 'Todas' },
-            { id: 'ai', label: 'Inteligência Artificial' },
-            { id: 'communication', label: 'Comunicação' },
-            { id: 'marketing', label: 'Marketing' },
-            { id: 'productivity', label: 'Produtividade' }
-          ].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id as Category)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                activeCategory === cat.id 
-                  ? 'bg-primary/10 text-primary border border-primary/20' 
-                  : 'text-text-sec hover:text-text-main hover:bg-bg-card border border-transparent'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative w-full md:w-72 shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-sec" size={18} />
-          <input 
-            type="text" 
-            placeholder="Buscar integrações..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-bg-main border border-border-color rounded-xl pl-10 pr-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-primary transition-colors"
-          />
-        </div>
-      </div>
-
-      {/* Integrations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence mode="popLayout">
-          {filteredIntegrations.map((def) => {
-            const status = getStatus(def.checkSettingsKey);
-            return (
-              <motion.div
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
-                key={def.id}
-                className={`bg-bg-sidebar rounded-2xl border transition-all duration-300 flex flex-col overflow-hidden group ${
-                  status === 'connected' 
-                    ? 'border-primary/30 shadow-[0_0_15px_rgba(201,168,76,0.05)]' 
-                    : 'border-border-color hover:border-hover-color'
-                }`}
-              >
-                <div className="p-6 flex-1">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className={`w-12 h-12 rounded-xl bg-bg-main border border-border-color flex items-center justify-center ${def.color} shadow-inner`}>
-                      <def.icon size={24} />
-                    </div>
-                    
-                    {status === 'connected' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider">
-                        <CheckCircle2 size={12} />
-                        Conectado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-main text-text-sec border border-border-color text-[10px] font-bold uppercase tracking-wider">
-                        Desconectado
-                      </span>
-                    )}
-                  </div>
-                  
-                  <h3 className="text-lg font-bold text-text-main mb-2">{def.name}</h3>
-                  <p className="text-sm text-text-sec leading-relaxed line-clamp-3">
-                    {def.description}
-                  </p>
+        {/* ⚙️ API Settings & Details */}
+        <div className="lg:col-span-4 space-y-8">
+          <div className="bg-bg-sidebar border border-border-color p-6 rounded-3xl shadow-xl">
+            <div className="flex items-center gap-3 mb-6">
+              <SettingsIcon className="text-primary" size={20} />
+              <h3 className="text-xs font-bold text-text-main uppercase tracking-widest">Configuração Técnica</h3>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-bold text-text-sec uppercase tracking-[0.2em] mb-2">Evolution URL</label>
+                <div className="px-4 py-3 bg-bg-main border border-border-color rounded-xl text-xs text-text-sec truncate">
+                  {settings.whatsapp_evo_url || 'Não configurado'}
                 </div>
+              </div>
 
-                <div className="p-4 border-t border-border-color bg-bg-main/50 flex items-center justify-between mt-auto">
-                  <div className="text-xs text-text-sec">
-                    {status === 'connected' ? (
-                      <span className="flex items-center gap-1 text-emerald-500">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Disponível
-                      </span>
-                    ) : (
-                      <span>Pronto para conectar</span>
-                    )}
-                  </div>
-                  
-                  {status === 'connected' ? (
-                    <div className="flex items-center gap-2">
-                       <button 
-                        onClick={() => handleConnectClick(def.modalConfig)}
-                        className="text-xs font-bold text-primary hover:text-primary/70 transition-colors uppercase tracking-wider"
-                      >
-                        Ajustar
-                      </button>
-                      <span className="text-border-color">|</span>
-                      <button 
-                        onClick={() => handleDisconnect(def.modalConfig.fields.map(f => f.key))}
-                        className="text-xs font-bold text-text-sec hover:text-rose-500 transition-colors uppercase tracking-wider"
-                      >
-                        Desconectar
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => handleConnectClick(def.modalConfig)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-primary text-bg-main rounded-lg text-xs font-bold hover:bg-secondary transition-colors"
-                    >
-                      Conectar
-                      <ArrowRight size={14} />
-                    </button>
-                  )}
+              <div>
+                <label className="block text-[10px] font-bold text-text-sec uppercase tracking-[0.2em] mb-2">Global API Key</label>
+                <div className="px-4 py-3 bg-bg-main border border-border-color rounded-xl text-xs text-text-sec tracking-widest">
+                  ••••••••••••••••••••••••
                 </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+              </div>
+
+              <div className="pt-4 border-t border-border-color">
+                <div className="flex items-center justify-between text-[11px] mb-2">
+                  <span className="text-text-sec">Versão da API</span>
+                  <span className="text-text-main font-bold">2.1.1 (v2)</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-text-sec">Engine de Proxy</span>
+                  <span className="text-emerald-400 font-bold">Ativa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Webhook Status */}
+          <div className="bg-emerald-500/5 border border-emerald-500/20 p-6 rounded-3xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Webhooks Ativos</h4>
+            </div>
+            <p className="text-[11px] text-text-sec leading-relaxed">
+              Recebendo eventos em tempo real para: 
+              <br/><br/>
+              • Mensagens Recebidas
+              <br/>
+              • Status de Conexão
+              <br/>
+              • Presença do Usuário
+            </p>
+          </div>
+        </div>
       </div>
 
-      {filteredIntegrations.length === 0 && (
-        <div className="text-center py-20 bg-bg-sidebar rounded-2xl border border-border-color">
-          <Link2 size={48} className="mx-auto text-hover-color mb-4" />
-          <h3 className="text-xl font-bold text-text-main mb-2">Nenhuma integração encontrada</h3>
-          <p className="text-text-sec">Tente buscar com outros termos ou limpe os filtros.</p>
-        </div>
-      )}
-
-      {/* Custom Webhook Card */}
-      <div className="bg-bg-sidebar border border-border-color p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between mt-8 gap-4">
-        <div>
-          <h4 className="font-bold text-text-main mb-1">API Personalizada (Webhooks)</h4>
-          <p className="text-sm text-text-sec">Receba leads de qualquer sistema via POST request.</p>
-        </div>
-        <button className="flex items-center justify-center gap-2 px-4 py-3 bg-bg-main text-primary rounded-xl border border-border-color hover:border-primary/50 transition-colors font-bold text-sm">
-          Acessar Documentação da API <ExternalLink size={16} />
-        </button>
-      </div>
-
-      <IntegrationModal 
-        isOpen={selectedConfig !== null}
-        onClose={() => setSelectedConfig(null)}
-        config={selectedConfig}
-        onSuccess={handleSuccess}
+      <MockupGenerator 
+        pageName="Integrations" 
+        promptDescription="An integrations hub showing WhatsApp connectivity status with a QR code pairing section. Tech-focused design with neon green and gold accents." 
       />
     </div>
   );
