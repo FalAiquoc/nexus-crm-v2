@@ -262,6 +262,51 @@ export function Integrations() {
 
         {/* ⚙️ API Settings & Details */}
         <div className="lg:col-span-4 space-y-8">
+          {/* 🧪 Simulation Controls (Admin Only - SDD) */}
+          <div className="bg-bg-sidebar border border-border-color p-6 rounded-3xl shadow-xl">
+            <div className="flex items-center gap-3 mb-6">
+              <Database className="text-amber-500" size={20} />
+              <h3 className="text-xs font-bold text-text-main border-b border-amber-500/30 pb-1 uppercase tracking-widest">Controles de Simulação</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-[10px] text-text-sec leading-relaxed mb-4">
+                Gerencie dados fictícios para demonstração e testes de estresse da interface.
+              </p>
+
+              <button 
+                onClick={async () => {
+                  if (!window.confirm("Isso irá remover TODOS os dados marcados como simulação. Continuar?")) return;
+                  const token = localStorage.getItem("doboy_token");
+                  const res = await fetch("/api/admin/clear-mock-data", { 
+                    method: "POST", 
+                    headers: { "Authorization": `Bearer ${token}` } 
+                  });
+                  const data = await res.json();
+                  if (data.success) showToast(data.message, "success");
+                }}
+                className="w-full py-3 rounded-xl border border-red-500/30 text-red-500 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 size={14} /> Limpar Dados Fake
+              </button>
+
+              <button 
+                onClick={async () => {
+                  const token = localStorage.getItem("doboy_token");
+                  const res = await fetch("/api/admin/seed-mock-data", { 
+                    method: "POST", 
+                    headers: { "Authorization": `Bearer ${token}` } 
+                  });
+                  const data = await res.json();
+                  if (data.success) showToast(data.message, "success");
+                }}
+                className="w-full py-3 rounded-xl bg-amber-500 text-bg-sidebar text-[10px] font-bold uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+              >
+                <Zap size={14} /> Adicionar Dados Fake
+              </button>
+            </div>
+          </div>
+
           <div className="bg-bg-sidebar border border-border-color p-6 rounded-3xl shadow-xl">
             <div className="flex items-center gap-3 mb-6">
               <SettingsIcon className="text-primary" size={20} />
