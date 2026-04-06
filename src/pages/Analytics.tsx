@@ -32,11 +32,12 @@ import {
 } from 'recharts';
 import { useApp } from '../context/AppContext';
 import { MockupGenerator } from '../components/MockupGenerator';
+import { Client } from '../types';
 
 const COLORS = ['#D4AF37', '#B8860B', '#DAA520', '#C0C0C0', '#4A4A4A', '#8B4513'];
 
 export function Analytics() {
-  const { leads, subscriptions, isLoading } = useApp();
+  const { clients: leads = [], subscriptions = [], isLoading } = useApp();
   const [timeRange, setTimeRange] = useState('6m');
 
   // 📈 Kpis de Crescimento (Seguro contra nulos)

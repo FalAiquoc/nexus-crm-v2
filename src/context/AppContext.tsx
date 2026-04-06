@@ -8,6 +8,10 @@ interface AppContextType {
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   appointments: Appointment[];
   setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
+  plans: any[];
+  subscriptions: any[];
+  isSimulationMode: boolean;
+  setIsSimulationMode: React.Dispatch<React.SetStateAction<boolean>>;
   settings: WorkspaceSettings;
   setSettings: React.Dispatch<React.SetStateAction<WorkspaceSettings>>;
   pipelines: Pipeline[];
@@ -30,6 +34,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [isSimulationMode, setIsSimulationMode] = useState(() => localStorage.getItem('doboy_simulation_mode') === 'true');
   const [settings, setSettings] = useState<WorkspaceSettings>(() => {
     const savedSettings = localStorage.getItem('doboy_settings');
     if (savedSettings) {
@@ -219,6 +224,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       user, setUser,
       clients, setClients,
       appointments, setAppointments,
+      plans, subscriptions,
+      isSimulationMode, setIsSimulationMode,
       settings, setSettings,
       pipelines, stages,
       isLoading,

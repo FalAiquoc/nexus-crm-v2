@@ -14,13 +14,13 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { useApp } from '../context/AppContext';
-import { Lead } from '../types';
+import { Client } from '../types';
 import { MockupGenerator } from '../components/MockupGenerator';
 
-const COLORS = ['#D4AF37', '#B8860B', '#DAA520', '#C0C0C0', '#4A4A4A'];
+const COLORS = ['#D4AF37', '#B8860B', '#DAA520', '#C0C0C0', '#4A4A4A', '#8B4513'];
 
 export function Dashboard() {
-  const { leads, appointments, subscriptions, isLoading } = useApp();
+  const { clients: leads = [], subscriptions = [], appointments = [], isLoading } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
   // 📈 Cálculos de Funil e Métricas (Seguros contra nulos)
@@ -54,12 +54,19 @@ export function Dashboard() {
   // 🕒 Tendência de Growth (Mockado para visual mas derivado da data real de leads)
   const growthData = useMemo(() => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
-    return months.map((m, i) => ({
-      month: m,
-      leads: leads.filter(l => new Date(l.created_at).getMonth() === i).length,
-      revenue: Math.floor(Math.random() * 5000) + 2000
-    }));
-  }, [leads]);
+    return months.map((m, i) => {
+      const monthLeads = leads.filter(l => new Date(l.created_at).getMonth() === i);
+      const revenue = subscriptions
+        .filter(s => s.status === 'active' && new Date(s.created_at || Date.now()).getMonth() === i)
+        .reduce((acc, sub) => acc + (Number(sub.plan_price) || 0), 0);
+        
+      return {
+        month: m,
+        leads: monthLeads.length,
+        revenue: revenue
+      };
+    });
+  }, [leads, subscriptions]);
 
   const filteredLeads = leads
     .filter(l => 
@@ -94,23 +101,19 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* 💎 Cards de Métricas Elite */}
+      {/* 💎 Cards de Métricas Elite (Sem dados fantasmas - SDD) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Total de Leads', value: stats.totalLeads, icon: Users, color: 'text-primary', trend: '+12%', up: true },
-          { label: 'Assinaturas Ativas', value: stats.activeSubs, icon: DollarSign, color: 'text-blue-400', trend: '+5%', up: true },
-          { label: 'Agenda Semanal', value: stats.apptsCount, icon: Calendar, color: 'text-emerald-400', trend: '-2%', up: false },
-          { label: 'Receita Est. (MRR)', value: `R$ ${stats.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: 'text-primary', trend: '+18%', up: true }
+          { label: 'Total de Leads', value: stats.totalLeads, icon: Users, color: 'text-primary' },
+          { label: 'Assinaturas Ativas', value: stats.activeSubs, icon: DollarSign, color: 'text-blue-400' },
+          { label: 'Agenda Semanal', value: stats.apptsCount, icon: Calendar, color: 'text-emerald-400' },
+          { label: 'Receita Est. (MRR)', value: `R$ ${stats.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: TrendingUp, color: 'text-primary' }
         ].map((card, i) => (
           <div key={i} className="group bg-bg-sidebar border border-border-color p-6 rounded-2xl hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-primary/10 transition-colors"></div>
             <div className="flex items-start justify-between mb-4">
               <div className={`p-3 rounded-xl bg-bg-main/50 ${card.color}`}>
                 <card.icon size={22} />
-              </div>
-              <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${card.up ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                {card.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                {card.trend}
               </div>
             </div>
             <h3 className="text-text-sec text-[11px] font-bold uppercase tracking-[0.15em] mb-1">{card.label}</h3>

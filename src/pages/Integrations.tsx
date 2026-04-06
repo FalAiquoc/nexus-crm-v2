@@ -27,7 +27,7 @@ interface WhatsAppInstance {
 }
 
 export function Integrations() {
-  const { settings, updateSettings, isSimulationMode } = useApp();
+  const { settings, updateSettings, isSimulationMode, setIsSimulationMode, refreshData } = useApp();
   const { showToast } = useToast();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -264,14 +264,28 @@ export function Integrations() {
         <div className="lg:col-span-4 space-y-8">
           {/* 🧪 Simulation Controls (Admin Only - SDD) */}
           <div className="bg-bg-sidebar border border-border-color p-6 rounded-3xl shadow-xl">
-            <div className="flex items-center gap-3 mb-6">
-              <Database className="text-amber-500" size={20} />
-              <h3 className="text-xs font-bold text-text-main border-b border-amber-500/30 pb-1 uppercase tracking-widest">Controles de Simulação</h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Database className="text-amber-500" size={20} />
+                <h3 className="text-xs font-bold text-text-main border-b border-amber-500/30 pb-1 uppercase tracking-widest">Controles de Simulação</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  const newState = !isSimulationMode;
+                  setIsSimulationMode(newState);
+                  localStorage.setItem('doboy_simulation_mode', String(newState));
+                  showToast(`Modo Simulação ${newState ? 'Ativado' : 'Desativado'}`, "info");
+                  refreshData();
+                }}
+                className={`w-10 h-5 rounded-full relative transition-colors ${isSimulationMode ? 'bg-amber-500' : 'bg-bg-main border border-border-color'}`}
+              >
+                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isSimulationMode ? 'left-6' : 'left-1'}`}></div>
+              </button>
             </div>
             
             <div className="space-y-4">
               <p className="text-[10px] text-text-sec leading-relaxed mb-4">
-                Gerencie dados fictícios para demonstração e testes de estresse da interface.
+                Gerencie dados fictícios para demonstração e testes de estresse da interface. O toggle acima controla o comportamento visual e o mockup do WhatsApp.
               </p>
 
               <button 
@@ -283,7 +297,10 @@ export function Integrations() {
                     headers: { "Authorization": `Bearer ${token}` } 
                   });
                   const data = await res.json();
-                  if (data.success) showToast(data.message, "success");
+                  if (data.success) {
+                    showToast(data.message, "success");
+                    refreshData();
+                  }
                 }}
                 className="w-full py-3 rounded-xl border border-red-500/30 text-red-500 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 transition-all flex items-center justify-center gap-2"
               >
@@ -298,7 +315,10 @@ export function Integrations() {
                     headers: { "Authorization": `Bearer ${token}` } 
                   });
                   const data = await res.json();
-                  if (data.success) showToast(data.message, "success");
+                  if (data.success) {
+                    showToast(data.message, "success");
+                    refreshData();
+                  }
                 }}
                 className="w-full py-3 rounded-xl bg-amber-500 text-bg-sidebar text-[10px] font-bold uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
               >
