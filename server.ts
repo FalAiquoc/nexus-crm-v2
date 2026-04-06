@@ -228,11 +228,22 @@ async function startServer() {
         throw new Error(`Erro na criação: ${errData.message || JSON.stringify(errData)}`);
       }
 
-      // 3. Warmup prolongado (VPS Latency)
+      // 3. Definir Versão do WhatsApp (TDD - Alinhado com Status 06/04)
+      console.log(`📡 [WHATSAPP_PROXY] Configurando WA_VERSION...`);
+      await fetch(`${baseUrl}/instance/setSettings/${instanceName}`, {
+        method: 'POST',
+        headers: { 'apikey': evo.whatsapp_evo_key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          whatsappVersion: "2.3000.1015901307"
+        }),
+        signal: controller.signal
+      }).catch(() => {});
+
+      // 4. Warmup prolongado (VPS Latency - SDD)
       console.log(`⏳ [WHATSAPP_PROXY] Aguardando 15s para estabilização do browser...`);
       await new Promise(resolve => setTimeout(resolve, 15000));
 
-      // 4. Conectar e obter QR
+      // 5. Conectar e obter QR
       console.log(`📡 [WHATSAPP_PROXY] Solicitando QR Code...`);
       const connectRes = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
         headers: { 'apikey': evo.whatsapp_evo_key },
@@ -661,19 +672,6 @@ async function startServer() {
     } catch (error: any) {
       console.error('🔥 [SEED_ERROR] Falha na injeção:', error);
       res.status(500).json({ error: "Falha ao injetar dados profissionais" });
-    }
-  });
-
-  // Rota para admin buscar solicitações (Blindagem SDD)
-  app.get("/api/admin/requests", authenticate, async (req: any, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: "Acesso negado" });
-    try {
-      const requests = await db.prepare("SELECT * FROM access_requests ORDER BY created_at DESC").all();
-      res.json(requests);
-    } catch (error) {
-      console.error("🔥 [API_ERROR] Erro ao buscar access_requests:", error);
-      // Retorna array vazio em vez de crashar a interface se a tabela falhar
-      res.json([]);
     }
   });
 
