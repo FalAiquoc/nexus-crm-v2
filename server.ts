@@ -82,11 +82,13 @@ async function startServer() {
     console.log(`🆕 Solicitação de acesso recebida: ${name} (${email}) - ${business}`);
     try {
       const id = Math.random().toString(36).substr(2, 9);
+      // Blindagem SDD: Verifica se a tabela existe antes de tentar inserir se necessário, 
+      // ou apenas confia na migração que acabamos de fazer via Supabase
       await db.prepare("INSERT INTO access_requests (id, name, email, business) VALUES ($1, $2, $3, $4)").run(id, name, email, business);
       res.json({ success: true, message: "Solicitação enviada! Entraremos em contato em breve." });
     } catch (error) {
-      console.error("Erro ao salvar solicitação:", error);
-      res.status(500).json({ error: "Erro ao processar solicitação" });
+      console.error("🔥 [DB_ERROR] Erro ao salvar solicitação de acesso:", error);
+      res.status(500).json({ error: "Erro ao processar solicitação. Tabela access_requests pode estar pendente de migração." });
     }
   });
 
@@ -659,6 +661,19 @@ async function startServer() {
     } catch (error: any) {
       console.error('🔥 [SEED_ERROR] Falha na injeção:', error);
       res.status(500).json({ error: "Falha ao injetar dados profissionais" });
+    }
+  });
+
+  // Rota para admin buscar solicitações (Blindagem SDD)
+  app.get("/api/admin/requests", authenticate, async (req: any, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: "Acesso negado" });
+    try {
+      const requests = await db.prepare("SELECT * FROM access_requests ORDER BY created_at DESC").all();
+      res.json(requests);
+    } catch (error) {
+      console.error("🔥 [API_ERROR] Erro ao buscar access_requests:", error);
+      // Retorna array vazio em vez de crashar a interface se a tabela falhar
+      res.json([]);
     }
   });
 
