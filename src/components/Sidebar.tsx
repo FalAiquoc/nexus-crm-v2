@@ -205,6 +205,16 @@ export function Sidebar({
                   ))}
                 </div>
 
+                <div className="px-4 py-2 bg-primary/5 rounded-xl border border-primary/10 mb-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest text-shadow-sm">v2.2.0 Platinum</span>
+                    <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-text-sec font-medium leading-tight">Módulo BI & Analytics Restaurado</p>
+                </div>
                 <button 
                   onClick={onLogout}
                   className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-amber-500/80 hover:text-amber-500 hover:bg-amber-500/10 transition-all font-bold text-xs"
@@ -290,6 +300,17 @@ export function Sidebar({
                   {mode === 'minimized' && <PanelLeftClose size={14} />}
                 </button>
               ))}
+            </div>
+          )}
+          {!effectiveCollapsed && (
+            <div className="px-3 py-2 mb-2 flex items-center gap-2 border border-primary/10 rounded-lg bg-primary/5">
+              <span className="px-1.5 py-0.5 bg-primary text-bg-main text-[9px] font-black rounded-md shadow-sm">
+                PT
+              </span>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-text-main font-black tracking-tight leading-none">v2.2.0 Platinum</span>
+                <span className="text-[8px] text-text-sec uppercase tracking-widest font-medium mt-0.5">Nexus Executive</span>
+              </div>
             </div>
           )}
           <button 

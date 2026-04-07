@@ -70,8 +70,8 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
       leads: list.filter(c => c?.status === s.name).length,
       value: list.filter(c => c?.status === s.name).reduce((sum, c) => sum + (Number(c.value) || 0), 0)
     }));
-    const hasFunnelValues = funnelData.some(d => d.value > 0);
-    const safeFunnelData = hasFunnelValues ? funnelData : funnelData.map((d, i) => ({ ...d, value: i === 0 ? 1 : 0 }));
+    // Removido o fix de '1 real' que inseria valores falsos em estados vazios
+    const safeFunnelData = funnelData;
 
     // Métricas por Origem (ROAI)
     const sourceMap = list.reduce((acc: any, c) => {
@@ -222,7 +222,7 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
                     />
                   ))}
                 </Pie>
-                <RechartsTooltip content={<CustomTooltip suffix=" leads" />} />
+                <RechartsTooltip content={<CustomTooltip formatter={(val: number) => formatCurrency(val)} />} />
               </PieChart>
             </ResponsiveContainer>
             {/* HUD Central Intelligence */}
@@ -308,7 +308,7 @@ export function Dashboard({ onSelectClient }: DashboardProps) {
                   axisLine={false}
                   tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(0)}k` : val}
                 />
-                <RechartsTooltip content={<CustomTooltip suffix=" pts" />} />
+                <RechartsTooltip content={<CustomTooltip formatter={(val: number) => formatCurrency(val)} />} />
                 <Area 
                   type="monotone" 
                   dataKey="value" 
