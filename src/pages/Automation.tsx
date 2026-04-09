@@ -2,11 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Zap, Plus, Play, Pause, Edit2, Trash2, Search, Filter, ArrowRight, MousePointer2, Mail, Tag, Bell, MessageCircle, X, Check, Sparkles, Loader2, Calendar, FileText, Clock, User, ArrowDown, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Workflow } from '../types';
-import { GoogleGenAI, Type } from "@google/genai";
 import * as Icons from 'lucide-react';
-
-const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
-const ai = new GoogleGenAI({ apiKey: apiKey as string });
 
 type StepType = 'trigger' | 'action' | 'condition' | 'delay' | string;
 
@@ -18,35 +14,6 @@ interface WorkflowStep {
   icon: string;
   targetWorkflowId?: string; // For workflow chains
 }
-
-const mockWorkflows: Workflow[] = [
-  { 
-    id: '1', 
-    name: 'Boas-vindas Novos Leads', 
-    trigger: 'Lead Criado', 
-    actions_count: 1, 
-    status: 'active', 
-    last_run: 'Há 10 min',
-    steps: [
-      { id: 's1', type: 'trigger', title: 'Novo Lead', description: 'Quando um lead for criado no sistema', icon: 'user' },
-      { id: 's2', type: 'action', title: 'Enviar WhatsApp', description: 'Mensagem de boas-vindas inicial', icon: 'message-circle' }
-    ]
-  },
-  { 
-    id: '2', 
-    name: 'Follow-up de Proposta', 
-    trigger: 'Movido para Proposta', 
-    actions_count: 2, 
-    status: 'paused', 
-    last_run: 'Há 2 dias',
-    steps: [
-      { id: 's1', type: 'trigger', title: 'Movido para Proposta', description: 'Quando o lead entra na fase de proposta', icon: 'zap' },
-      { id: 's2', type: 'delay', title: 'Esperar 2 dias', description: 'Aguardar resposta do cliente', icon: 'clock' },
-      { id: 's3', type: 'action', title: 'Enviar Lembrete', description: 'Mensagem de follow-up automática', icon: 'message-circle' }
-    ]
-  },
-];
-
 const defaultTemplates = [
   {
     id: 't1',
@@ -86,10 +53,11 @@ const IconComponent = ({ name, ...props }: { name: string, [key: string]: any })
 };
 
 export function Automation() {
-  const [workflows, setWorkflows] = useState<Workflow[]>(mockWorkflows);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [templates, setTemplates] = useState(defaultTemplates);
   const [customTypes, setCustomTypes] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [isGlobalCreatorOpen, setIsGlobalCreatorOpen] = useState(false);
   const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
@@ -109,20 +77,41 @@ export function Automation() {
   const [isStepModalOpen, setIsStepModalOpen] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
 
-  // Load user templates and custom types from localStorage
+  // Load workflows from API
   useEffect(() => {
+    fetchWorkflows();
+    
     const savedTemplates = localStorage.getItem('doboy_user_templates');
     if (savedTemplates) {
       setTemplates([...defaultTemplates, ...JSON.parse(savedTemplates)]);
     }
-    const savedTypes = localStorage.getItem('doboy_custom_types');
-    if (savedTypes) {
-      setCustomTypes(JSON.parse(savedTypes));
-    }
   }, []);
 
+  // Debounce logic for search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const fetchWorkflows = async () => {
+    const token = localStorage.getItem('doboy_token');
+    try {
+      const res = await fetch('/api/automation', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWorkflows(data);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar automações:", err);
+    }
+  };
+
   const filteredWorkflows = workflows.filter(w => 
-    w.name.toLowerCase().includes(search.toLowerCase())
+    w.name.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const openBuilder = (workflow?: Workflow) => {
@@ -144,94 +133,44 @@ export function Automation() {
     if (!globalPrompt.trim()) return;
     
     setIsGlobalGenerating(true);
+    const token = localStorage.getItem('doboy_token');
     
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Analise este pedido de automação complexa: "${globalPrompt}". 
-        Crie um ou mais fluxos de trabalho (workflows) que resolvam este problema. 
-        Se o processo for complexo, divida-o em múltiplos fluxos que se conectam (cadeias de fluxo).
-        Para conectar fluxos, use o tipo 'chain' e no campo 'targetWorkflowId' use o NOME do fluxo que deve ser chamado.
-        
-        Retorne um array de objetos, onde cada objeto é um workflow com:
-        - name: Nome do fluxo
-        - steps: Array de passos (o primeiro deve ser 'trigger').
-        
-        Tipos de passos permitidos: 'trigger', 'action', 'condition', 'delay', 'chain'.
-        Ícones: 'zap', 'mail', 'message-circle', 'clock', 'tag', 'user', 'bell', 'check-circle', 'file-text', 'calendar', 'database', 'globe', 'share-2', 'link'.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                steps: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      type: { type: Type.STRING },
-                      title: { type: Type.STRING },
-                      description: { type: Type.STRING },
-                      icon: { type: Type.STRING },
-                      targetWorkflowId: { type: Type.STRING, description: "Nome do fluxo alvo se o tipo for 'chain'" }
-                    },
-                    required: ["type", "title", "description", "icon"]
-                  }
-                }
-              },
-              required: ["name", "steps"]
-            }
-          }
-        }
+      const response = await fetch('/api/automation/generate', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ prompt: globalPrompt, globalMode: true })
       });
       
-      const generatedWorkflows = JSON.parse(response.text?.trim() || '[]');
+      if (!response.ok) throw new Error("Falha na geração");
       
-      // Process generated workflows to add IDs and handle chains
-      const newWorkflows: Workflow[] = generatedWorkflows.map((gw: any) => {
-        const workflowId = Math.random().toString(36).substr(2, 9);
-        return {
-          id: workflowId,
-          name: gw.name,
-          trigger: gw.steps[0]?.title || 'Gatilho',
-          actions_count: gw.steps.length - 1,
-          status: 'active',
-          last_run: '-',
-          steps: gw.steps.map((s: any, i: number) => ({ ...s, id: `step-${i}` }))
-        };
-      });
-
-      // Map names to IDs for chains
-      newWorkflows.forEach(w => {
-        w.steps?.forEach(s => {
-          if (s.type === 'chain' && s.targetWorkflowId) {
-            const target = newWorkflows.find(tw => tw.name === s.targetWorkflowId);
-            if (target) s.targetWorkflowId = target.id;
-          }
+      const generatedWorkflows = await response.json();
+      
+      // Save each generated workflow to backend
+      for (const gw of generatedWorkflows) {
+        const steps = gw.steps.map((s: any, i: number) => ({ ...s, id: `step-${i}` }));
+        await fetch('/api/automation', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: gw.name,
+            trigger_name: steps[0]?.title || 'Gatilho',
+            steps: steps,
+            status: 'active'
+          })
         });
-      });
+      }
 
-      setWorkflows([...newWorkflows, ...workflows]);
+      await fetchWorkflows(); // Refresh list
       setIsGlobalCreatorOpen(false);
       setGlobalPrompt('');
       
-      // Auto-incorporation of the main workflow as a template
-      if (newWorkflows.length > 0) {
-        const mainW = newWorkflows[0];
-        const newTemplate = {
-          id: `ut-${Math.random().toString(36).substr(2, 9)}`,
-          name: mainW.name,
-          prompt: globalPrompt,
-          steps: mainW.steps as WorkflowStep[]
-        };
-        const userTemplates = JSON.parse(localStorage.getItem('doboy_user_templates') || '[]');
-        localStorage.setItem('doboy_user_templates', JSON.stringify([newTemplate, ...userTemplates].slice(0, 10)));
-        setTemplates([...defaultTemplates, newTemplate, ...userTemplates].slice(0, 13));
-      }
-
     } catch (error) {
       console.error("Erro ao gerar múltiplos fluxos:", error);
     } finally {
@@ -243,35 +182,20 @@ export function Automation() {
     if (!prompt.trim()) return;
     
     setIsGenerating(true);
-    
+    const token = localStorage.getItem('doboy_token');
+
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Refine este fluxo de automação baseado neste pedido: "${prompt}". 
-        Fluxo atual: ${JSON.stringify(generatedSteps)}.
-        Retorne o array COMPLETO de passos atualizado.
-        Tipos permitidos: 'trigger', 'action', 'condition', 'delay', 'chain'.
-        Se o tipo for 'chain', inclua 'targetWorkflowId' com o ID ou nome de outro fluxo.`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING },
-                title: { type: Type.STRING },
-                description: { type: Type.STRING },
-                icon: { type: Type.STRING },
-                targetWorkflowId: { type: Type.STRING }
-              },
-              required: ["type", "title", "description", "icon"]
-            }
-          }
-        }
+      const response = await fetch('/api/automation/generate', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ prompt, currentSteps: generatedSteps, globalMode: false })
       });
       
-      const steps = JSON.parse(response.text?.trim() || '[]');
+      if (!response.ok) throw new Error("Falha na geração");
+      const steps = await response.json();
       setGeneratedSteps(steps.map((s: any, i: number) => ({ ...s, id: s.id || `step-${i}` })));
     } catch (error) {
       console.error("Erro ao refinar fluxo:", error);
@@ -286,70 +210,89 @@ export function Automation() {
     setGeneratedSteps(template.steps as WorkflowStep[]);
   };
 
-  const handleSaveWorkflow = () => {
+  const handleSaveWorkflow = async () => {
     if (generatedSteps.length === 0) return;
 
     const finalName = workflowName || 'Nova Automação';
-
-    // Auto-incorporation logic: If it's a new workflow and has a prompt, save it as a template
-    if (!editingWorkflowId && prompt.trim()) {
-      const newTemplate = {
-        id: `ut-${Math.random().toString(36).substr(2, 9)}`,
-        name: finalName,
-        prompt: prompt,
-        steps: generatedSteps
-      };
-      
-      const userTemplates = JSON.parse(localStorage.getItem('doboy_user_templates') || '[]');
-      const updatedUserTemplates = [newTemplate, ...userTemplates].slice(0, 10); // Keep last 10
-      localStorage.setItem('doboy_user_templates', JSON.stringify(updatedUserTemplates));
-      setTemplates([...defaultTemplates, ...updatedUserTemplates]);
-    }
-
-    if (editingWorkflowId) {
-      setWorkflows(workflows.map(w => {
-        if (w.id === editingWorkflowId) {
-          return {
-            ...w,
+    const token = localStorage.getItem('doboy_token');
+    
+    try {
+      if (editingWorkflowId) {
+        await fetch(`/api/automation/${editingWorkflowId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
             name: finalName,
-            trigger: generatedSteps[0]?.title || 'Gatilho Desconhecido',
-            actions_count: generatedSteps.length - 1,
-            steps: generatedSteps
-          };
-        }
-        return w;
-      }));
-    } else {
-      const newWorkflow: Workflow = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: finalName,
-        trigger: generatedSteps[0]?.title || 'Gatilho Desconhecido',
-        actions_count: generatedSteps.length - 1,
-        status: 'active',
-        last_run: '-',
-        steps: generatedSteps
-      };
-      setWorkflows([newWorkflow, ...workflows]);
-    }
-
-    setIsBuilderOpen(false);
-    setPrompt('');
-    setGeneratedSteps([]);
-    setWorkflowName('');
-    setEditingWorkflowId(null);
-  };
-
-  const toggleStatus = (id: string) => {
-    setWorkflows(workflows.map(w => {
-      if (w.id === id) {
-        return { ...w, status: w.status === 'active' ? 'paused' : 'active' };
+            trigger_name: generatedSteps[0]?.title || 'Gatilho',
+            steps: generatedSteps,
+            status: workflows.find(w => w.id === editingWorkflowId)?.status || 'active'
+          })
+        });
+      } else {
+        await fetch('/api/automation', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: finalName,
+            trigger_name: generatedSteps[0]?.title || 'Gatilho',
+            steps: generatedSteps,
+            status: 'active'
+          })
+        });
       }
-      return w;
-    }));
+
+      await fetchWorkflows();
+      setIsBuilderOpen(false);
+      setPrompt('');
+      setGeneratedSteps([]);
+      setWorkflowName('');
+      setEditingWorkflowId(null);
+    } catch (err) {
+      console.error("Erro ao salvar fluxo:", err);
+    }
   };
 
-  const deleteWorkflow = (id: string) => {
-    setWorkflows(workflows.filter(w => w.id !== id));
+  const toggleStatus = async (workflow: Workflow) => {
+    const token = localStorage.getItem('doboy_token');
+    const newStatus = workflow.status === 'active' ? 'paused' : 'active';
+    try {
+      await fetch(`/api/automation/${workflow.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...workflow,
+          trigger_name: workflow.trigger,
+          status: newStatus
+        })
+      });
+      await fetchWorkflows();
+    } catch (err) {
+      console.error("Erro ao alternar status:", err);
+    }
+  };
+
+  const deleteWorkflow = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta regra?')) return;
+    
+    const token = localStorage.getItem('doboy_token');
+    try {
+      await fetch(`/api/automation/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      await fetchWorkflows();
+    } catch (err) {
+      console.error("Erro ao excluir fluxo:", err);
+    }
   };
 
   const handleEditStep = (index: number) => {
@@ -492,7 +435,7 @@ export function Automation() {
                     </td>
                     <td className="px-6 py-5">
                       <button 
-                        onClick={() => toggleStatus(workflow.id)}
+                        onClick={() => toggleStatus(workflow)}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
                           workflow.status === 'active' 
                             ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20' 

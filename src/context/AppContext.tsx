@@ -13,6 +13,7 @@ interface AppContextType {
   pipelines: Pipeline[];
   stages: Stage[];
   isLoading: boolean;
+  isSimulatedMode: boolean;
   refreshData: () => Promise<void>;
   updateClient: (client: Client) => Promise<void>;
   deleteClient: (id: string) => Promise<void>;
@@ -43,11 +44,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       workspace_type: 'general',
       business_name: 'CRM DoBoy',
       active_theme: 'ouro-negro',
-      sidebar_mode: 'auto',
+      sidebar_mode: 'fixed',
       ui_density: 'comfortable'
     };
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isSimulatedMode, setIsSimulatedMode] = useState(false);
 
   const refreshData = async () => {
     const token = localStorage.getItem('doboy_token');
@@ -57,6 +59,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // System Status (Simulação Ativa?)
+      const statusRes = await fetch('/api/system/status');
+      if (statusRes.ok) {
+        const { isSimulatedMode } = await statusRes.json();
+        setIsSimulatedMode(isSimulatedMode);
+      }
+
       // Fetch User
       const userRes = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -147,6 +156,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refreshData();
   }, []);
 
+  // Sincronização offline-first: Garante que qualquer alteração nas configurações 
+  // (incluindo o workspaceType que dita os gráficos renderizados) seja imediatamente salva no navegador,
+  // prevenindo a "perda da visão de negócios" após um F5.
+  useEffect(() => {
+    if (settings) {
+      localStorage.setItem('doboy_settings', JSON.stringify(settings));
+    }
+  }, [settings]);
+
   const updateClient = async (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
     const token = localStorage.getItem('doboy_token');
@@ -226,7 +244,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateClient,
       deleteClient,
       updateSettings,
-      addAppointment
+      addAppointment,
+      isSimulatedMode
     }}>
       {children}
     </AppContext.Provider>

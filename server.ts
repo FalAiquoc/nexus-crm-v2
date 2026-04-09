@@ -3,11 +3,23 @@ import path from "path";
 import db, { initializeDatabase, isSimulatedMode } from "./server/db";
 import { comparePassword, generateToken, verifyToken } from "./server/auth";
 import bcrypt from "bcryptjs";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { evolutionService } from "./server/services/evolution.service";
+import { automationEngine } from "./server/services/automation.engine";
+
+const apiKey = process.env.VITE_GEMINI_API_KEY || "";
+const client = new GoogleGenAI({ apiKey });
+
+// Configura serviço Evolution
+evolutionService.configure(
+  process.env.EVOLUTION_API_URL,
+  process.env.EVOLUTION_GLOBAL_API_KEY
+);
 
 async function startServer() {
   // Ensure DB is ready
   await initializeDatabase();
-  
+
   const app = express();
   const PORT = process.env.PORT || 3001;
 
@@ -22,7 +34,7 @@ async function startServer() {
     try {
       // Busca usuário (usa o helper .get que já lida com mock ou real)
       const user = await db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-      
+
       if (!user) {
         console.warn(`❌ Usuário não encontrado: ${email}`);
         return res.status(401).json({ error: "Credenciais inválidas" });
@@ -91,7 +103,7 @@ async function startServer() {
     req.userId = decoded.userId;
     next();
   };
-  
+
   // Middleware Administrativo
   const adminOnly = async (req: any, res: any, next: any) => {
     try {
@@ -123,7 +135,7 @@ async function startServer() {
   // ==========================================
   // API ROUTES
   // ==========================================
-  
+
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Nexus CRM API is running" });
   });
@@ -227,18 +239,25 @@ async function startServer() {
   app.post("/api/leads", authenticate, async (req, res) => {
     const { name, email, phone, source, status, value, notes } = req.body;
     const id = Math.random().toString(36).substr(2, 9);
-    
+
     try {
       const stmt = db.prepare(`
-        INSERT INTO leads (id, name, email, phone, source, status, custom_fields)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO leads (id, name, email, phone, source, status, custom_fields, is_mock)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `);
-      
+
       const customFields = { ...req.body };
       delete customFields.name; delete customFields.email; delete customFields.phone; delete customFields.source; delete customFields.status;
 
-      await stmt.run(id, name, email, phone, source || 'Manual', status || 'Novo Lead', JSON.stringify(customFields));
-      
+      await stmt.run(id, name, email, phone, source || 'Manual', status || 'Novo Lead', JSON.stringify(customFields), false);
+
+      // Dispara automações de "Lead Criado"
+      if (!isSimulatedMode) {
+        automationEngine.triggerLeadCreated(id).catch(err => {
+          console.error('⚠️ [AUTOMATION] Erro ao disparar automações:', err);
+        });
+      }
+
       res.status(201).json({ id, name, email, phone, source, status, ...customFields });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -248,19 +267,19 @@ async function startServer() {
   app.put("/api/leads/:id", authenticate, async (req, res) => {
     const { id } = req.params;
     const { name, email, phone, source, status, value, notes } = req.body;
-    
+
     try {
       const stmt = db.prepare(`
         UPDATE leads 
         SET name = $1, email = $2, phone = $3, source = $4, status = $5, custom_fields = $6
         WHERE id = $7
       `);
-      
+
       const customFields = { ...req.body };
       delete customFields.name; delete customFields.email; delete customFields.phone; delete customFields.source; delete customFields.status; delete customFields.id;
-      
+
       await stmt.run(name, email, phone, source, status, JSON.stringify(customFields), id);
-      
+
       res.json({ id, name, email, phone, source, status, ...customFields });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -396,40 +415,455 @@ async function startServer() {
     }
   });
 
-  // Admin Simulation Controls
+  // Admin Simulation Controls (Sandbox Isolation)
+  app.get("/api/system/status", async (req, res) => {
+    const { isSimulatedMode } = await import("./server/db");
+    res.json({ isSimulatedMode });
+  });
+
   app.post("/api/admin/clear-mock-data", authenticate, adminOnly, async (req, res) => {
     try {
-      await db.prepare("DELETE FROM subscriptions").run();
-      await db.prepare("DELETE FROM appointments").run();
-      await db.prepare("DELETE FROM leads").run();
-      await db.prepare("DELETE FROM access_requests").run();
-      res.json({ success: true, message: "Dados de simulação removidos." });
+      // Limpeza Seletiva: Somente dados marcados como is_mock = true são removidos
+      await db.prepare("DELETE FROM leads WHERE is_mock = true").run();
+      await db.prepare("DELETE FROM automation_rules WHERE is_mock = true").run();
+      await db.prepare("DELETE FROM appointments WHERE is_mock = true").run();
+
+      res.json({ success: true, message: "Dados de simulação removidos com segurança." });
     } catch (error) {
-      res.status(500).json({ error: "Falha ao limpar dados" });
+      console.error("🔥 [DB_PURGE_ERROR]", error);
+      res.status(500).json({ error: "Falha ao realizar limpeza de dados." });
     }
   });
 
   app.post("/api/admin/seed-mock-data", authenticate, adminOnly, async (req, res) => {
     try {
-      const names = ["Carlos Mendes", "Ana Paula Silva", "Roberto Almeida", "Fernanda Costa", "Lucas Oliveira"];
-      const statuses = ["Novo Lead", "Contato Inicial", "Proposta Enviada", "Negociação", "Fechado"];
-      const sources = ["Instagram", "Indicação", "Google Ads", "Facebook"];
-      
-      for (let i = 0; i < 10; i++) {
-        const id = Math.random().toString(36).substr(2, 9);
-        const name = names[Math.floor(Math.random() * names.length)];
-        const status = statuses[Math.floor(Math.random() * statuses.length)];
-        const source = sources[Math.floor(Math.random() * sources.length)];
-        const value = Math.floor(Math.random() * 5000) + 100;
-        
-        await db.prepare(`
-          INSERT INTO leads (id, name, email, phone, source, status, custom_fields)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `).run(id, `${name} ${i}`, `${name.toLowerCase().replace(' ', '')}@email.com`, '(11) 99999-0000', source, status, JSON.stringify({ value, notes: 'Lead de simulação' }));
-      }
-      res.json({ success: true, message: "Dados de simulação injetados." });
+      const { setSimulatedMode } = await import("./server/db");
+      setSimulatedMode(true);
+      res.json({ success: true, message: "Sandbox Ativo. Dados de simulação isolados carregados." });
     } catch (error) {
-      res.status(500).json({ error: "Falha ao injetar dados" });
+      res.status(500).json({ error: "Falha ao ativar sandbox" });
+    }
+  });
+
+  // ==========================================
+  // AUTOMATION CRUD ROUTES
+  // ==========================================
+
+  app.get("/api/automation", authenticate, async (req: any, res) => {
+    try {
+      const rules = await db.prepare("SELECT * FROM automation_rules WHERE user_id = ?").all(req.userId);
+      res.json(rules.map((r: any) => ({
+        ...r,
+        steps: typeof r.steps === 'string' ? JSON.parse(r.steps) : r.steps
+      })));
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao carregar automações" });
+    }
+  });
+
+  app.post("/api/automation", authenticate, async (req: any, res) => {
+    const { name, trigger_name, status, steps } = req.body;
+    try {
+      const id = Math.random().toString(36).substr(2, 9);
+      const stepsJson = JSON.stringify(steps);
+      await db.prepare("INSERT INTO automation_rules (id, name, trigger_name, status, steps, user_id) VALUES ($1, $2, $3, $4, $5, $6)")
+        .run(id, name, trigger_name, status || 'active', stepsJson, req.userId);
+
+      res.json({ id, name, trigger_name, status, steps, user_id: req.userId });
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao criar automação" });
+    }
+  });
+
+  app.put("/api/automation/:id", authenticate, async (req: any, res) => {
+    const { id } = req.params;
+    const { name, trigger_name, status, steps } = req.body;
+    try {
+      const stepsJson = JSON.stringify(steps);
+      await db.prepare("UPDATE automation_rules SET name = $1, trigger_name = $2, status = $3, steps = $4 WHERE id = $5 AND user_id = $6")
+        .run(name, trigger_name, status, stepsJson, id, req.userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao atualizar automação" });
+    }
+  });
+
+  app.delete("/api/automation/:id", authenticate, async (req: any, res) => {
+    const { id } = req.params;
+    try {
+      await db.prepare("DELETE FROM automation_rules WHERE id = $1 AND user_id = $2").run(id, req.userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Falha ao excluir automação" });
+    }
+  });
+
+  // ==========================================
+  // AI GENERATION ROUTES
+  // ==========================================
+
+  app.post("/api/automation/generate", authenticate, async (req: any, res) => {
+    const { prompt, currentSteps, globalMode } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt é obrigatório" });
+    }
+
+    try {
+
+      let systemInstruction = "";
+      if (globalMode) {
+        systemInstruction = `Analise este pedido de automação complexa. 
+        Crie um ou mais fluxos de trabalho (workflows) que resolvam este problema. 
+        Se o processo for complexo, divida-o em múltiplos fluxos que se conectam (cadeias de fluxo).
+        Para conectar fluxos, use o tipo 'chain' e no campo 'targetWorkflowId' use o NOME do fluxo que deve ser chamado.
+        
+        Retorne um array de objetos, onde cada objeto é um workflow com:
+        - name: Nome do fluxo
+        - steps: Array de passos (o primeiro deve ser 'trigger').
+        
+        Tipos de passos permitidos: 'trigger', 'action', 'condition', 'delay', 'chain'.
+        Ícones: 'zap', 'mail', 'message-circle', 'clock', 'tag', 'user', 'bell', 'check-circle', 'file-text', 'calendar', 'database', 'globe', 'share-2', 'link'.`;
+      } else {
+        systemInstruction = `Refine este fluxo de automação baseado neste pedido: "${prompt}". 
+        Fluxo atual: ${JSON.stringify(currentSteps || [])}.
+        Retorne o array COMPLETO de passos atualizado.
+        Tipos permitidos: 'trigger', 'action', 'condition', 'delay', 'chain'.
+        Se o tipo for 'chain', inclua 'targetWorkflowId' com o ID ou nome de outro fluxo.`;
+      }
+
+      const promptText = `${systemInstruction}\n\nPedido do usuário: ${prompt}`;
+
+      // Chamada padrão 2026 usando a nova SDK e thinking_level para Gemini 3
+      const response = await client.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: promptText,
+        config: {
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.HIGH, // Garante raciocínio profundo para automações
+          }
+        }
+      });
+
+      let text = response.text || "";
+
+      // Limpeza de blocos de código se a IA retornar markdown
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+      try {
+        const jsonResponse = JSON.parse(text);
+        res.json(jsonResponse);
+      } catch (parseError) {
+        console.error("Erro ao parsear JSON da IA:", text);
+        res.status(500).json({ error: "A IA retornou um formato inválido", raw: text });
+      }
+    } catch (error: any) {
+      console.error("Erro na integração com Gemini:", error);
+      res.status(500).json({ error: "Falha na comunicação com a API de Inteligência Artificial" });
+    }
+  });
+
+  // ==========================================
+  // WHATSAPP / EVOLUTION API ROUTES
+  // ==========================================
+
+  // Health check Evolution API
+  app.get("/api/whatsapp/health", authenticate, async (req, res) => {
+    try {
+      const status = await evolutionService.healthCheck();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ status: 'error', message: error.message });
+    }
+  });
+
+  // Listar instâncias WhatsApp
+  app.get("/api/whatsapp/instances", authenticate, async (req, res) => {
+    try {
+      // Busca instâncias da Evolution API
+      const evolutionInstances = await evolutionService.listInstances();
+
+      // Busca instâncias salvas no banco
+      const dbInstances = await db.prepare(
+        "SELECT * FROM whatsapp_instances WHERE user_id = $1 ORDER BY created_at DESC"
+      ).all(req.userId);
+
+      res.json({
+        evolution: evolutionInstances,
+        database: dbInstances
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Criar instância WhatsApp
+  app.post("/api/whatsapp/instances", authenticate, async (req: any, res) => {
+    const { name, instance_name, qrcode } = req.body;
+
+    try {
+      // Cria na Evolution API
+      const evolutionResult = await evolutionService.createInstance({
+        instanceName: instance_name || name.toLowerCase().replace(/\s+/g, '-'),
+        qrcode: qrcode !== false
+      });
+
+      // Salva no banco
+      const id = Math.random().toString(36).substr(2, 9);
+      const apiKey = instance_name || name.toLowerCase().replace(/\s+/g, '-');
+
+      await db.prepare(
+        `INSERT INTO whatsapp_instances (id, name, instance_name, api_key, status, user_id, is_mock)
+         VALUES ($1, $2, $3, $4, 'disconnected', $5, false)`
+      ).run(id, name, instance_name, apiKey, req.userId);
+
+      res.json({
+        success: true,
+        instance: evolutionResult,
+        db_id: id
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Conectar instância (gera QR Code)
+  app.post("/api/whatsapp/instances/:id/connect", authenticate, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      const instance = await db.prepare(
+        "SELECT * FROM whatsapp_instances WHERE id = $1 AND user_id = $2"
+      ).get(id, req.userId);
+
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      const result = await evolutionService.connectInstance(instance.instance_name);
+
+      // Atualiza status no banco
+      await db.prepare(
+        "UPDATE whatsapp_instances SET status = 'connecting', updated_at = CURRENT_TIMESTAMP WHERE id = $1"
+      ).run(id);
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Desconectar instância
+  app.post("/api/whatsapp/instances/:id/disconnect", authenticate, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      const instance = await db.prepare(
+        "SELECT * FROM whatsapp_instances WHERE id = $1 AND user_id = $2"
+      ).get(id, req.userId);
+
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      await evolutionService.disconnectInstance(instance.instance_name);
+
+      await db.prepare(
+        "UPDATE whatsapp_instances SET status = 'disconnected', updated_at = CURRENT_TIMESTAMP WHERE id = $1"
+      ).run(id);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Deletar instância
+  app.delete("/api/whatsapp/instances/:id", authenticate, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      const instance = await db.prepare(
+        "SELECT * FROM whatsapp_instances WHERE id = $1 AND user_id = $2"
+      ).get(id, req.userId);
+
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      await evolutionService.deleteInstance(instance.instance_name);
+      await db.prepare("DELETE FROM whatsapp_instances WHERE id = $1").run(id);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Configurar webhook de instância
+  app.post("/api/whatsapp/instances/:id/webhook", authenticate, async (req, res) => {
+    const { id } = req.params;
+    const { webhook_url, events } = req.body;
+
+    try {
+      const instance = await db.prepare(
+        "SELECT * FROM whatsapp_instances WHERE id = $1 AND user_id = $2"
+      ).get(id, req.userId);
+
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+      const webhookEndpoint = `${backendUrl}/api/webhook/whatsapp`;
+
+      await evolutionService.setWebhook(instance.instance_name, {
+        url: webhookEndpoint,
+        events: events || ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE']
+      });
+
+      await db.prepare(
+        "UPDATE whatsapp_instances SET webhook_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
+      ).run(webhookEndpoint, id);
+
+      res.json({ success: true, webhook_url: webhookEndpoint });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Enviar mensagem de teste
+  app.post("/api/whatsapp/send-test", authenticate, async (req: any, res) => {
+    const { instance_id, phone_number, message } = req.body;
+
+    try {
+      const instance = await db.prepare(
+        "SELECT * FROM whatsapp_instances WHERE id = $1 AND user_id = $2"
+      ).get(instance_id, req.userId);
+
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+
+      await evolutionService.sendTextMessage(
+        { instanceName: instance.instance_name, apiKey: instance.api_key },
+        { number: phone_number, text: message }
+      );
+
+      // Registra no banco
+      const msgId = Math.random().toString(36).substr(2, 9);
+      await db.prepare(
+        `INSERT INTO whatsapp_messages (id, instance_id, direction, phone_number, message_type, content, status, created_at)
+         VALUES ($1, $2, 'outbound', $3, 'text', $4, 'sent', $5)`
+      ).run(msgId, instance_id, phone_number, message, new Date().toISOString());
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Listar mensagens
+  app.get("/api/whatsapp/messages", authenticate, async (req, res) => {
+    const { instance_id, phone_number, limit = 50 } = req.query;
+
+    try {
+      let query = "SELECT * FROM whatsapp_messages WHERE 1=1";
+      const params: any[] = [];
+
+      if (instance_id) {
+        query += ` AND instance_id = $${params.length + 1}`;
+        params.push(instance_id);
+      }
+
+      if (phone_number) {
+        query += ` AND phone_number = $${params.length + 1}`;
+        params.push(phone_number);
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+      params.push(Number(limit));
+
+      const messages = await db.prepare(query).all(...params);
+      res.json(messages);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Logs de automação
+  app.get("/api/automation/logs", authenticate, async (req, res) => {
+    const { automation_id, limit = 50 } = req.query;
+
+    try {
+      let query = `
+        SELECT al.*, ar.name as automation_name
+        FROM automation_logs al
+        LEFT JOIN automation_rules ar ON al.automation_id = ar.id
+        WHERE ar.user_id = $1
+      `;
+      const params: any[] = [req.userId];
+
+      if (automation_id) {
+        query += ` AND al.automation_id = $${params.length + 1}`;
+        params.push(automation_id);
+      }
+
+      query += ` ORDER BY al.started_at DESC LIMIT $${params.length + 1}`;
+      params.push(Number(limit));
+
+      const logs = await db.prepare(query).all(...params);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================
+  // WEBHOOK ENDPOINTS (Sem autenticação JWT)
+  // ==========================================
+
+  // Webhook Evolution API - Recebe mensagens do WhatsApp
+  app.post("/api/webhook/whatsapp", async (req, res) => {
+    try {
+      const body = req.body;
+      console.log('📥 [WEBHOOK] Mensagem recebida da Evolution API:', JSON.stringify(body, null, 2));
+
+      // MESSAGES_UPSERT - Nova mensagem recebida
+      if (body.event === 'MESSAGES_UPSERT' && body.data) {
+        const message = body.data;
+        const instanceName = message.key?.instanceName;
+        const phoneNumber = message.key?.remoteJid?.replace('@s.whatsapp.net', '');
+        const messageText = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
+
+        console.log(`💬 [WHATSAPP] Mensagem de ${phoneNumber}: ${messageText}`);
+
+        // Salva mensagem no banco
+        const msgId = Math.random().toString(36).substr(2, 9);
+        await db.prepare(
+          `INSERT INTO whatsapp_messages (id, instance_id, direction, phone_number, message_type, content, metadata, created_at)
+           VALUES ($1, $2, 'inbound', $3, 'text', $4, $5, $6)`
+        ).run(msgId, instanceName, phoneNumber, messageText, JSON.stringify(message), new Date().toISOString());
+
+        // Dispara automações
+        await automationEngine.triggerWhatsAppMessageReceived(instanceName, phoneNumber, messageText);
+      }
+
+      // CONNECTION_UPDATE - Status da conexão
+      if (body.event === 'CONNECTION_UPDATE' && body.data) {
+        const { instanceName, status } = body.data;
+        console.log(`🔌 [WHATSAPP] Instância ${instanceName} status: ${status}`);
+
+        // Atualiza status no banco
+        await db.prepare(
+          "UPDATE whatsapp_instances SET status = $1, connection_status = $2, updated_at = CURRENT_TIMESTAMP WHERE instance_name = $3"
+        ).run(status, JSON.stringify(body.data), instanceName);
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('❌ [WEBHOOK] Erro ao processar webhook:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 

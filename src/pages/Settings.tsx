@@ -53,17 +53,17 @@ export function Settings() {
   };
 
   const handleClearMockData = async () => {
-    if (!window.confirm('Tem certeza que deseja apagar TODOS os dados de simulação? Esta ação não pode ser desfeita.')) return;
+    if (!window.confirm('Deseja remover apenas os dados de simulação? Seus dados reais e configurações serão preservados.')) return;
     
     try {
       const token = localStorage.getItem('doboy_token');
       const res = await fetch('/api/admin/clear-mock-data', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('doboy_token')}` }
       });
       if (res.ok) {
-        showToast('Dados de simulação removidos com sucesso!', 'success');
-        refreshData();
+        showToast('Ambiente resetado com sucesso!', 'success');
+        window.location.reload();
       } else {
         showToast('Erro ao limpar dados', 'error');
       }
@@ -306,12 +306,12 @@ export function Settings() {
 
             <button
               onClick={handleClearMockData}
-              className="p-4 rounded-xl border border-border-color bg-bg-main/20 hover:bg-red-500/10 hover:border-red-500/50 transition-all text-left flex items-center gap-3"
+              className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/50 transition-all text-left flex items-center gap-3 group"
             >
-              <Trash2 className="text-red-500" size={24} />
+              <Trash2 className="text-red-500 group-hover:scale-110 transition-transform" size={24} />
               <div>
-                <span className="font-bold text-text-main text-sm block">Limpar Dados Fake</span>
-                <span className="text-[10px] text-text-sec">Remove todos os dados de teste</span>
+                <span className="font-bold text-red-500 text-sm block">Limpar Simulação</span>
+                <span className="text-[10px] text-text-sec">Remove apenas dados fakes (BI)</span>
               </div>
             </button>
 

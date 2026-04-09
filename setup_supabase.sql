@@ -113,6 +113,68 @@ CREATE TABLE IF NOT EXISTS business_hours (
     is_closed BOOLEAN DEFAULT FALSE
 );
 
+-- ============================================
+-- TABELAS DE AUTOMAÇÃO E WHATSAPP
+-- ============================================
+
+-- TABELA DE AUTOMAÇÕES
+CREATE TABLE IF NOT EXISTS automation_rules (
+    id TEXT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    trigger_name VARCHAR(255) NOT NULL,
+    status VARCHAR(50) DEFAULT 'active',
+    steps JSONB DEFAULT '[]',
+    user_id TEXT REFERENCES users(id),
+    integration_config JSONB DEFAULT '{}',
+    last_run TIMESTAMP,
+    is_mock BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABELA DE INSTÂNCIAS WHATSAPP (EVOLUTION API)
+CREATE TABLE IF NOT EXISTS whatsapp_instances (
+    id TEXT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    instance_name VARCHAR(255) NOT NULL,
+    api_key VARCHAR(255) NOT NULL,
+    webhook_url TEXT,
+    status VARCHAR(50) DEFAULT 'disconnected',
+    is_default BOOLEAN DEFAULT FALSE,
+    user_id TEXT REFERENCES users(id),
+    connection_status JSONB DEFAULT '{}',
+    is_mock BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABELA DE MENSAGENS WHATSAPP (LOG DE COMUNICAÇÃO)
+CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    id TEXT PRIMARY KEY,
+    instance_id TEXT REFERENCES whatsapp_instances(id),
+    direction VARCHAR(10) NOT NULL, -- 'inbound' ou 'outbound'
+    phone_number VARCHAR(20) NOT NULL,
+    message_type VARCHAR(50) DEFAULT 'text', -- 'text', 'image', 'document', etc.
+    content TEXT,
+    media_url TEXT,
+    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'sent', 'delivered', 'read', 'failed'
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABELA DE LOGS DE EXECUÇÃO DE AUTOMAÇÃO
+CREATE TABLE IF NOT EXISTS automation_logs (
+    id TEXT PRIMARY KEY,
+    automation_id TEXT REFERENCES automation_rules(id) ON DELETE CASCADE,
+    trigger_data JSONB,
+    execution_status VARCHAR(50) DEFAULT 'running',
+    steps_executed INTEGER DEFAULT 0,
+    steps_total INTEGER DEFAULT 0,
+    error_message TEXT,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
 -- ÍNDICES
 CREATE INDEX IF NOT EXISTS idx_leads_company ON leads(company_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
@@ -123,6 +185,12 @@ CREATE INDEX IF NOT EXISTS idx_stages_pipeline ON stages(pipeline_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_user ON appointments(user_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(start_time);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON subscriptions(client_id);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_user ON automation_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_status ON automation_rules(status);
+CREATE INDEX IF NOT EXISTS idx_automation_logs_automation ON automation_logs(automation_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_instances_user ON whatsapp_instances(user_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_instance ON whatsapp_messages(instance_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_phone ON whatsapp_messages(phone_number);
 
 -- SEEDS BÁSICOS
 INSERT INTO pipelines (id, name, is_default) VALUES ('p1', 'Vendas B2B', TRUE) ON CONFLICT DO NOTHING;

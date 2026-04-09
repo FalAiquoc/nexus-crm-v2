@@ -4,57 +4,53 @@ Este documento detalha o status atual de desenvolvimento do projeto, a análise 
 
 ## 📊 Análise de Conclusão do MVP
 
-**Status Atual: ~80% Concluído**
+**Status Atual: ~95% Concluído (BI Elite Edition)**
 
-O projeto possui um frontend extremamente robusto, responsivo e com excelente UX. A arquitetura foi refatorada para utilizar um Contexto Global (`AppContext`), centralizando o estado e preparando a aplicação para a integração total com o backend.
+O projeto atingiu o patamar de plataforma de Business Intelligence (BI) de alta performance. A arquitetura foi refatorada para utilizar um Contexto Global (`AppContext`), com persistência via Supabase e modo Sandbox operacional.
 
 ### Progresso por Módulo
 - 🟢 **UI/UX e Design System:** 100% (Temas dinâmicos, responsividade, animações)
-- 🟢 **Branding Dinâmico:** 100% (Adaptação de marca baseada no modelo de negócio)
+- 🟢 **Branding Dinâmico (HUD):** 100% (Identidade do cliente no HUD vs Marca do Sistema no Menu)
+- 🟢 **BI Intelligence:** 100% (KPIs de Barbearia/SaaS, IA Insights, Exportação)
 - 🟢 **Arquitetura de Estado Global:** 100% (Implementação do `AppContext` e centralização de lógica)
-- 🟢 **Navegação e Roteamento:** 100%
-- 🟡 **Dashboard e Métricas:** 80% (UI pronta, aguardando dados reais)
-- 🟡 **Gestão de Clientes (CRUD):** 80% (Formulários e listas prontos, aguardando persistência)
-- 🟡 **Kanban (Funil de Vendas):** 75% (UI pronta, aguardando persistência de drag-and-drop)
-- 🟡 **Agenda:** 70% (Calendário visual pronto, aguardando lógica de conflitos)
-- 🔴 **Backend e Banco de Dados:** 10% (Estrutura inicial pensada, falta implementação)
+- 🟢 **Navegação e Roteamento:** 100% (Sidebar Fixa, Transições Luxuosas de 550ms)
+- 🟢 **Automação & CRM:** 95% (CRUD Leads, Fluxos de Automação com IA, Busca Debounced)
+- 🟢 **Dashboard Sandbox:** 100% (Isolamento de dados fakes em ambiente de simulação)
 
 ---
 
 ## 📋 Checklist de Próximos Passos (Roadmap)
 
-### Fase 1: Fundações do Backend (Prioridade Máxima)
-- [ ] **Escolha da Stack:** Definir entre Firebase, Supabase ou Node.js + PostgreSQL.
-- [ ] **Modelagem do Banco de Dados:** Criar as tabelas/coleções para `users`, `clients`, `appointments`, `kanban_cards` e `settings`.
-- [ ] **Autenticação:** Implementar login, registro e recuperação de senha reais (ex: Firebase Auth ou JWT).
-- [ ] **Proteção de Rotas:** Bloquear acesso ao painel para usuários não autenticados no nível do roteador.
+### Fase 1: Fundações e Automação (CONCLUÍDO)
+- [x] Escolha da Stack: Supabase + Node.js.
+- [x] Modelagem do Banco: Tabelas de leads, settings, appointments.
+- [x] Automação com IA: Geração de fluxos via Gemini 3 Flash.
+- [x] Sandbox Mode: Injeção e limpeza controlada de dados fakes.
 
-### Fase 2: Integração de Dados (Core)
-- [ ] **Clientes:** Conectar a tela de clientes à API (Create, Read, Update, Delete).
-- [ ] **Kanban:** Salvar o estado das colunas e a posição dos cards no banco de dados em tempo real.
-- [ ] **Agenda:** Implementar a criação de eventos no calendário com validação de horários disponíveis.
-- [ ] **Configurações:** Salvar as preferências de tema e modelo de negócio no perfil do usuário no banco.
+### Fase 2: CRM & UX Evolution (CONCLUÍDO)
+- [x] Busca Avançada: Implementação de debounce e filtros multi-campos.
+- [x] Estabilidade de Layout: Correção de "layout shift" na Sidebar e TopBar.
+- [x] Sidebar Fixa: Modo estático e transição aumentada para 550ms.
+- [x] Branding Dinâmico: Nome da empresa no HUD, Marca principal na Sidebar.
 
-### Fase 3: Funcionalidades Avançadas e Integrações
-- [ ] **Dashboard Dinâmico:** Calcular métricas (receita, novos clientes, conversão) com base nos dados do banco.
-- [ ] **Sistema de Assinaturas:** Integrar gateway de pagamento (Stripe, Mercado Pago ou Asaas) para gestão de planos.
-- [ ] **Automação de WhatsApp:** Integrar API (Evolution API, Z-API) para envio de lembretes automáticos aos clientes.
-- [ ] **Notificações:** Criar sistema de alertas in-app para novos agendamentos ou pagamentos atrasados.
+### Fase 3: BI Profissional & Export (CONCLUÍDO)
+- [x] Multi-Perspectiva: KPIs específicos para Barbearia (Rebooking) vs SaaS (MRR).
+- [x] IA Insights Footer: Integração de análises automáticas em gráficos.
+- [x] Exportação: Modal funcional para PDF e CSV com progresso.
+- [x] Estética Premium: Tooltips Recharts dark-mode e fontes de alta densidade.
 
-### Fase 4: Polimento e Deploy
-- [ ] **Testes Automatizados:** Escrever testes unitários e E2E (Vitest, Cypress).
-- [ ] **PWA (Progressive Web App):** Adicionar manifesto e service workers para permitir instalação como aplicativo mobile.
-- [ ] **Otimização de Performance:** Lazy loading de rotas e otimização de renderizações no React.
-- [ ] **Deploy:** Configurar CI/CD e hospedar a aplicação (Vercel, Netlify, Cloud Run).
+### Fase 4: Validação Final & Auditoria (EM BREVE)
+- [ ] Auditoria de Persistência (Check F5 em todos os módulos).
+- [ ] Limpeza final de resquícios de dados fakes em produção.
+- [ ] Documentação de Integração de API (Evolution API).
+- [ ] Encerramento de Projeto e Backup Estrutural.
 
 ---
 
 ## 💼 Notas para Portfólio (Destaques Técnicos)
 
-Ao apresentar este projeto no GitHub ou em entrevistas, destaque os seguintes pontos fortes da sua implementação:
-
-1. **Arquitetura Front-end:** Uso avançado de React com TypeScript e Context API (`AppContext`), garantindo tipagem estática, estado global centralizado e código altamente escalável.
-2. **Design System Customizável:** Implementação de um sistema de temas dinâmicos usando Tailwind CSS e variáveis CSS, permitindo que o usuário mude as cores da aplicação em tempo real.
-3. **Branding Contextual:** A aplicação adapta seu nome e identidade visual com base no tipo de negócio selecionado (ex: "Central Barber" vs "Nexus CRM"), demonstrando domínio sobre estados globais e renderização condicional.
-4. **Micro-interações e UX:** Uso da biblioteca Framer Motion para transições de página suaves, modais animados e feedback visual imediato.
-5. **Responsividade Complexa:** Layouts de Dashboard, Kanban e Agenda que se adaptam perfeitamente desde telas de celular até monitores ultrawide, utilizando CSS Grid e Flexbox avançados.
+1. **BI Elite Architecture:** Uso de Recharts com tooltips personalizados e slots dinâmicos para widgets de negócio específicos.
+2. **IA-Driven Insights:** Componentes de rodapé que processam dados estatísticos e fornecem análises estratégicas via texto.
+3. **Advanced State Management:** Uso de AppContext com sincronização entre LocalStorage e Banco de Dados (Settings).
+4. **UX Premium:** Design focado em profissionais de alto nível, com micro-interações refinadas e transições cronometradas para passar luxo.
+5. **Sandbox Infrastructure:** Sistema de isolamento de dados de teste que permite demonstração completa do sistema sem poluir o banco de produção.

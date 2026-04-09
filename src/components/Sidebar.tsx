@@ -1,21 +1,22 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  LayoutDashboard, 
-  KanbanSquare, 
-  UserPlus, 
-  Users, 
-  Hexagon, 
-  Zap, 
-  BarChart3, 
-  Link2, 
+import {
+  LayoutDashboard,
+  KanbanSquare,
+  UserPlus,
+  Users,
+  Hexagon,
+  Zap,
+  BarChart3,
+  Link2,
   Settings,
   LogOut,
   Calendar,
   CreditCard,
   X,
   Monitor,
-  PanelLeftClose
+  PanelLeftClose,
+  MessageCircle
 } from 'lucide-react';
 import { Page } from '../types';
 
@@ -28,36 +29,39 @@ interface SidebarProps {
   setSidebarMode?: (mode: 'fixed' | 'auto' | 'minimized') => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  businessName?: string;
   isMobileMenuOpen: boolean;
   onCloseMobileMenu: () => void;
   user: any;
   pendingRequestsCount?: number;
-  businessName?: string;
 }
 
 
-export function Sidebar({ 
-  currentPage, 
-  onNavigate, 
-  onLogout, 
+export function Sidebar({
+  currentPage,
+  onNavigate,
+  onLogout,
   workspaceType = 'general',
   user,
   sidebarMode = 'auto',
   setSidebarMode,
   isCollapsed,
-  onToggleCollapse, 
+  onToggleCollapse,
   isMobileMenuOpen,
   onCloseMobileMenu,
-  pendingRequestsCount = 0,
-  businessName = workspaceType === 'barbershop' ? 'Central Barber DoBoy' : 'CRM DoBoy'
+  businessName,
+  pendingRequestsCount = 0
 }: SidebarProps) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
+  // Marca fixa do Software para o Menu Lateral (Institucional)
+  const brandDisplay = { top: 'CRM', bottom: 'DoBoy' };
+
   // Lógica cirúrgica: no modo auto, ignoramos isCollapsed para evitar travas
-  const effectiveCollapsed = 
-    sidebarMode === 'auto' ? !isHovered : 
-    sidebarMode === 'minimized' ? true : 
-    isCollapsed;
+  const effectiveCollapsed =
+    sidebarMode === 'auto' ? !isHovered :
+      sidebarMode === 'minimized' ? true :
+        isCollapsed;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -66,27 +70,28 @@ export function Sidebar({
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
-    { 
-      id: 'calendar', 
-      label: 'Agenda', 
-      icon: Calendar, 
-      show: workspaceType === 'barbershop' || workspaceType === 'law_firm' 
+    {
+      id: 'calendar',
+      label: 'Agenda',
+      icon: Calendar,
+      show: workspaceType === 'barbershop' || workspaceType === 'law_firm'
     },
-    { 
-      id: 'kanban', 
-      label: workspaceType === 'law_firm' ? 'Processos' : 'Kanban', 
-      icon: KanbanSquare, 
-      show: true 
+    {
+      id: 'kanban',
+      label: workspaceType === 'law_firm' ? 'Processos' : 'Kanban',
+      icon: KanbanSquare,
+      show: true
     },
-    { 
-      id: 'subscriptions', 
-      label: workspaceType === 'barbershop' ? 'Clube / Planos' : 'Assinaturas', 
-      icon: CreditCard, 
-      show: workspaceType === 'barbershop' 
+    {
+      id: 'subscriptions',
+      label: workspaceType === 'barbershop' ? 'Clube / Planos' : 'Assinaturas',
+      icon: CreditCard,
+      show: workspaceType === 'barbershop'
     },
     { id: 'form', label: workspaceType === 'barbershop' ? 'Novo Cliente' : 'Novo Lead', icon: UserPlus, show: true },
     { id: 'contacts', label: 'Contatos', icon: Users, show: true },
     { id: 'automation', label: 'Automação', icon: Zap, show: true },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, show: true },
     { id: 'analytics', label: 'Relatórios', icon: BarChart3, show: true },
     { id: 'integrations', label: 'Integrações', icon: Link2, show: true },
     { id: 'users', label: 'Usuários', icon: Users, show: user?.role === 'admin' },
@@ -139,17 +144,14 @@ export function Sidebar({
               className="fixed inset-y-0 left-0 w-[280px] bg-bg-sidebar border-r border-border-color z-[70] md:hidden flex flex-col"
             >
               <div className="p-6 border-b border-border-color flex items-center justify-between">
-                <div className="flex items-center gap-2 max-w-[120px] xs:max-w-none">
-                  <div className="w-8 h-8 bg-gradient-to-br from-grad-start to-grad-end rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0 shadow-lg shadow-primary/20">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-bg-main">
-                      <path d="M12 2L17.5 5.5L22 12L17.5 18.5L12 22L6.5 18.5L2 12L6.5 5.5L12 2Z" />
-                    </svg>
+                <div className="flex items-center gap-2 max-w-[120px] xs:max-w-none px-2">
+                  <Hexagon className="text-primary shrink-0" size={24} strokeWidth={1.5} />
+                  <div className="flex flex-col leading-[1.1]">
+                    <span className="text-sm font-black text-primary tracking-tighter uppercase">{brandDisplay.top}</span>
+                    <span className="text-sm font-black text-primary tracking-tighter uppercase">{brandDisplay.bottom}</span>
                   </div>
-                  <span className="text-text-main font-bold text-sm truncate uppercase tracking-tight">
-                    {businessName}
-                  </span>
                 </div>
-                <button 
+                <button
                   onClick={onCloseMobileMenu}
                   className="p-2 text-text-sec hover:text-text-main hover:bg-bg-card rounded-lg transition-colors"
                 >
@@ -166,11 +168,10 @@ export function Sidebar({
                     <button
                       key={item.id}
                       onClick={() => handleNavigate(item.id as Page)}
-                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
-                        isActive
-                          ? 'bg-primary/10 text-primary border border-primary/20'
-                          : 'text-text-sec hover:text-text-main hover:bg-bg-card'
-                      }`}
+                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive
+                        ? 'bg-primary/10 text-primary border border-primary/20'
+                        : 'text-text-sec hover:text-text-main hover:bg-bg-card'
+                        }`}
                     >
                       <div className="relative">
                         <Icon size={20} className={isActive ? 'text-primary' : ''} strokeWidth={isActive ? 2.5 : 2} />
@@ -194,9 +195,8 @@ export function Sidebar({
                         setSidebarMode?.(mode);
                       }}
                       title={mode.charAt(0).toUpperCase() + mode.slice(1)}
-                      className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${
-                        sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
-                      }`}
+                      className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
+                        }`}
                     >
                       {mode === 'fixed' && <Monitor size={14} />}
                       {mode === 'auto' && <Zap size={14} />}
@@ -215,7 +215,7 @@ export function Sidebar({
                   </div>
                   <p className="text-[9px] text-text-sec font-medium leading-tight">Módulo BI & Analytics Restaurado</p>
                 </div>
-                <button 
+                <button
                   onClick={onLogout}
                   className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-amber-500/80 hover:text-amber-500 hover:bg-amber-500/10 transition-all font-bold text-xs"
                 >
@@ -229,26 +229,23 @@ export function Sidebar({
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      <div 
+      <div
         onMouseEnter={() => sidebarMode === 'auto' && setIsHovered(true)}
         onMouseLeave={() => sidebarMode === 'auto' && setIsHovered(false)}
-        className={`${effectiveCollapsed ? 'w-20' : 'w-64'} hidden md:flex h-screen bg-bg-sidebar border-r border-border-color flex-col shrink-0 transition-all duration-300 ease-in-out relative ${sidebarMode === 'auto' && isCollapsed ? 'z-50 shadow-2xl' : ''}`}
+        className={`${effectiveCollapsed ? 'w-20' : 'w-64'} hidden md:flex h-screen bg-bg-sidebar border-r border-border-color flex-col shrink-0 transition-all duration-550 ease-in-out relative ${sidebarMode === 'auto' && isCollapsed ? 'z-50 shadow-2xl' : ''}`}
       >
-        <div className={`p-6 ${effectiveCollapsed ? 'px-4' : 'px-8'} pb-6 border-b border-border-color flex items-center justify-between`}>
-          <div className={`flex items-center gap-3 transition-all duration-300 ${effectiveCollapsed ? 'justify-center w-full' : 'w-auto'}`}>
-            <div className="w-8 h-8 bg-gradient-to-br from-grad-start to-grad-end rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0 shadow-lg shadow-primary/20">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-bg-main">
-                <path d="M12 2L17.5 5.5L22 12L17.5 18.5L12 22L6.5 18.5L2 12L6.5 5.5L12 2Z" />
-              </svg>
+        <div className="h-20 flex items-center px-6 border-b border-border-color shrink-0 overflow-hidden">
+          <div className="flex items-center gap-3 w-full h-full">
+            <div className="min-w-[28px] flex justify-center flex-shrink-0">
+              <Hexagon className="text-primary" size={28} strokeWidth={1.5} />
             </div>
-            {!effectiveCollapsed && (
-              <h1 className="text-2xl font-bold text-primary tracking-wide uppercase truncate">
-                {businessName}
-              </h1>
-            )}
+            <div className={`flex flex-col leading-[1.1] transition-all duration-550 origin-left overflow-hidden ${effectiveCollapsed ? 'opacity-0 scale-95 w-0' : 'opacity-100 scale-100 w-auto'}`}>
+              <span className="text-base font-black text-primary tracking-tighter uppercase whitespace-nowrap overflow-hidden text-ellipsis">{brandDisplay.top}</span>
+              <span className="text-xs font-bold text-primary/60 tracking-tighter uppercase whitespace-nowrap overflow-hidden text-ellipsis">{brandDisplay.bottom}</span>
+            </div>
           </div>
         </div>
-        
+
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
           {visibleItems.map((item) => {
             const Icon = item.icon;
@@ -258,11 +255,10 @@ export function Sidebar({
                 key={item.id}
                 onClick={() => onNavigate(item.id as Page)}
                 title={effectiveCollapsed ? item.label : ''}
-                className={`w-full flex items-center space-x-4 px-3 py-3 rounded-lg transition-all duration-200 font-medium group ${
-                  isActive
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'text-text-sec hover:text-text-main hover:bg-bg-card'
-                }`}
+                className={`w-full flex items-center space-x-4 px-3 py-3 rounded-lg transition-all duration-200 font-medium group ${isActive
+                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  : 'text-text-sec hover:text-text-main hover:bg-bg-card'
+                  }`}
               >
                 <div className="relative">
                   <Icon size={20} className={`${isActive ? 'text-primary' : ''} shrink-0`} strokeWidth={isActive ? 2.5 : 2} />
@@ -282,38 +278,42 @@ export function Sidebar({
             );
           })}
         </nav>
-        
+
         <div className="p-3 border-t border-border-color space-y-2">
-          {!effectiveCollapsed && (
-            <div className="flex items-center gap-1 bg-bg-main/50 p-1 rounded-lg border border-border-color">
-              {(['fixed', 'auto', 'minimized'] as const).map(mode => (
+          {/* Dashboard Mode Selector - Always Present */}
+          <div className={`flex items-center gap-1 bg-bg-main/50 p-1 rounded-lg border border-border-color transition-all duration-300 ${effectiveCollapsed ? 'justify-center w-11 mx-auto overflow-hidden' : ''}`}>
+            {(['fixed', 'auto', 'minimized'] as const).map(mode => {
+              const isSelected = sidebarMode === mode;
+              const ModeIcon = mode === 'fixed' ? Monitor : mode === 'auto' ? Zap : PanelLeftClose;
+
+              if (effectiveCollapsed && !isSelected) return null; // Only show active icon when collapsed
+
+              return (
                 <button
                   key={mode}
                   onClick={() => setSidebarMode?.(mode)}
                   title={mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${
-                    sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
-                  }`}
+                  className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${isSelected ? 'bg-primary text-bg-main shadow-lg scale-105' : 'text-text-sec hover:text-text-main'
+                    } ${effectiveCollapsed ? 'w-full' : ''}`}
                 >
-                  {mode === 'fixed' && <Monitor size={14} />}
-                  {mode === 'auto' && <Zap size={14} />}
-                  {mode === 'minimized' && <PanelLeftClose size={14} />}
+                  <ModeIcon size={14} />
                 </button>
-              ))}
-            </div>
-          )}
-          {!effectiveCollapsed && (
-            <div className="px-3 py-2 mb-2 flex items-center gap-2 border border-primary/10 rounded-lg bg-primary/5">
-              <span className="px-1.5 py-0.5 bg-primary text-bg-main text-[9px] font-black rounded-md shadow-sm">
-                PT
-              </span>
-              <div className="flex flex-col">
+              );
+            })}
+          </div>
+          {/* Version/License Badge - Always Present */}
+          <div className={`px-2 py-2 mb-1 flex items-center border border-primary/10 rounded-lg bg-primary/5 transition-all duration-300 ${effectiveCollapsed ? 'justify-center w-11 mx-auto px-0' : 'gap-2 px-3'}`}>
+            <span className="px-1.5 py-0.5 bg-primary text-bg-main text-[9px] font-black rounded-md shadow-sm shrink-0">
+              PT
+            </span>
+            {!effectiveCollapsed && (
+              <div className="flex flex-col animate-in fade-in slide-in-from-left-1 duration-300">
                 <span className="text-[10px] text-text-main font-black tracking-tight leading-none">v2.2.0 Platinum</span>
                 <span className="text-[8px] text-text-sec uppercase tracking-widest font-medium mt-0.5">Nexus Executive</span>
               </div>
-            </div>
-          )}
-          <button 
+            )}
+          </div>
+          <button
             onClick={onLogout}
             title={effectiveCollapsed ? 'Sair' : ''}
             className={`w-full flex items-center space-x-4 px-3 py-3 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all duration-200 font-medium group`}
@@ -327,7 +327,7 @@ export function Sidebar({
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div 
+      <div
         ref={scrollRef}
         onMouseDown={handleMouseDown}
         onMouseLeave={handleMouseLeave}
@@ -343,12 +343,11 @@ export function Sidebar({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id as Page)}
-                className={`relative flex flex-col items-center justify-center px-5 py-2 transition-colors duration-300 ${
-                  isActive ? 'text-primary' : 'text-text-sec'
-                }`}
+                className={`relative flex flex-col items-center justify-center px-5 py-2 transition-colors duration-300 ${isActive ? 'text-primary' : 'text-text-sec'
+                  }`}
               >
                 {isActive && (
-                  <motion.div 
+                  <motion.div
                     layoutId="activeTab"
                     className="absolute inset-0 bg-primary/5 rounded-xl"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}

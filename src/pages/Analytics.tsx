@@ -33,7 +33,7 @@ type Tab = 'overview' | 'revenue' | 'funnel' | 'sources' | 'performance';
 const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-bg-sidebar/95 backdrop-blur-xl border border-primary/20 p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-l-4 border-l-primary">
+    <div className="bg-[#12121A] border border-primary/20 p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-l-4 border-l-primary">
       <p className="text-[10px] uppercase font-black text-text-sec tracking-[0.2em] mb-2 opacity-60">{label}</p>
       {payload.map((entry: any, i: number) => (
         <div key={i} className="flex items-center gap-2 mt-1">

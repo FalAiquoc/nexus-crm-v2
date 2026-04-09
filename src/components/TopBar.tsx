@@ -12,7 +12,8 @@ import {
   PanelLeft,
   Settings,
   LogOut,
-  User
+  User,
+  Hexagon
 } from 'lucide-react';
 import { Page } from '../types';
 
@@ -80,15 +81,17 @@ export function TopBar({
           </button>
         )}
         
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-grad-start to-grad-end rounded-lg flex items-center justify-center text-bg-main font-bold shrink-0 shadow-lg shadow-primary/20">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-bg-main">
-              <path d="M12 2L17.5 5.5L22 12L17.5 18.5L12 22L6.5 18.5L2 12L6.5 5.5L12 2Z" />
-            </svg>
+        <div className="flex items-center gap-3 ml-2 border-l border-border-color pl-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-primary/50 uppercase tracking-[0.2em] leading-none mb-0.5">
+              {workspaceType === 'barbershop' ? 'Gestão de Unidade' : 'BI Intelligence'}
+            </span>
+            <h2 className="text-sm font-black text-white uppercase tracking-tighter leading-none">
+              {workspaceType === 'barbershop' ? 'Central Barber DoBoy' : 
+               workspaceType === 'law_firm' ? 'Advocacia Nexus' : 
+               businessName || 'Nexus CRM v2'}
+            </h2>
           </div>
-          <span className="text-text-main font-semibold text-sm truncate max-w-[100px] sm:max-w-[150px] md:max-w-none">
-            {businessName}
-          </span>
         </div>
 
         <div className="hidden lg:flex items-center gap-1 ml-4">
