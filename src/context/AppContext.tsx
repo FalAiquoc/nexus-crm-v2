@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Client, Appointment, User, WorkspaceSettings, Stage, Pipeline } from '../types';
 
-interface AppContextType {
+export interface AppContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   clients: Client[];
@@ -12,6 +12,7 @@ interface AppContextType {
   setSettings: React.Dispatch<React.SetStateAction<WorkspaceSettings>>;
   pipelines: Pipeline[];
   stages: Stage[];
+  setStages: React.Dispatch<React.SetStateAction<Stage[]>>;
   isLoading: boolean;
   isSimulatedMode: boolean;
   refreshData: () => Promise<void>;
@@ -21,42 +22,61 @@ interface AppContextType {
   addAppointment: (appointment: Omit<Appointment, 'id'>) => Promise<void>;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+export const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const DEFAULT_PIPELINES: Pipeline[] = [
+  { id: 'sales', name: 'Funil de Vendas', is_default: 1 }
+];
+
+const DEFAULT_STAGES: Stage[] = [
+  { id: 'lead', name: 'Lead', pipeline_id: 'sales', sort_order: 0 },
+  { id: 'contact', name: 'Contato', pipeline_id: 'sales', sort_order: 1 },
+  { id: 'proposal', name: 'Proposta', pipeline_id: 'sales', sort_order: 2 },
+  { id: 'negotiation', name: 'Negociação', pipeline_id: 'sales', sort_order: 3 },
+  { id: 'closed', name: 'Fechado', pipeline_id: 'sales', sort_order: 4 }
+];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
+  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
-  const [stages, setStages] = useState<Stage[]>([]);
   const [settings, setSettings] = useState<WorkspaceSettings>(() => {
     const savedSettings = localStorage.getItem('doboy_settings');
     if (savedSettings) {
       try {
         return JSON.parse(savedSettings);
       } catch {
-        // ignore parse errors
+        return {
+          businessName: 'Nexus CRM',
+          primaryColor: '#EAB308',
+          sidebarMode: 'auto',
+          theme: 'dark'
+        };
       }
     }
     return {
-      workspace_type: 'general',
-      business_name: 'CRM DoBoy',
-      active_theme: 'ouro-negro',
-      sidebar_mode: 'fixed',
-      ui_density: 'comfortable'
+      businessName: 'Nexus CRM',
+      primaryColor: '#EAB308',
+      sidebarMode: 'auto',
+      theme: 'dark'
     };
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSimulatedMode, setIsSimulatedMode] = useState(() => {
-    // Persistir modo de simulação no localStorage para sobreviver F5
-    const saved = localStorage.getItem('doboy_simulated_mode');
-    return saved === 'true';
+    return localStorage.getItem('doboy_simulated_mode') === 'true';
   });
 
   const refreshData = async () => {
-    const token = localStorage.getItem('doboy_token');
+    const token = localStorage.getItem('nexus_token');
+
+    if (isSimulatedMode) {
+      setIsLoading(false);
+      return;
+    }
+
     if (!token) {
       setIsLoading(false);
       return;
@@ -64,103 +84,88 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     let backendResponding = false;
 
+    // Health check antes de tentar autenticação
     try {
-      // System Status (Simulação Ativa?)
-      const statusRes = await fetch('/api/system/status', {
-        // Timeout de 5s para não travar indefinidamente
-        signal: AbortSignal.timeout(5000)
-      });
-      if (statusRes.ok) {
-        const { isSimulatedMode: serverMode } = await statusRes.json();
-        setIsSimulatedMode(serverMode);
-        localStorage.setItem('doboy_simulated_mode', String(serverMode));
-        backendResponding = true;
-      }
+      const healthRes = await fetch('/api/health');
+      backendResponding = healthRes.ok;
+    } catch {
+      backendResponding = false;
+    }
 
-      // Fetch User
+    if (!backendResponding) {
+      console.warn('⚠️ Backend indisponível, ativando modo simulado...');
+      setIsSimulatedMode(true);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
       const userRes = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
       if (userRes.ok) {
-        setUser(await userRes.json());
         backendResponding = true;
-      } else {
-        setUser(null);
-      }
+        const userData = await userRes.json();
 
-      // Fetch Settings
-      const settingsRes = await fetch('/api/settings', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (settingsRes.ok) {
-        setSettings(await settingsRes.json());
-      }
+        const nicheToType: Record<string, any> = {
+          law: 'law_firm',
+          barbershop: 'barbershop',
+          general: 'general'
+        };
 
-      // Fetch Clients
-      const clientsRes = await fetch('/api/leads', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (clientsRes.ok) {
-        const data = await clientsRes.json();
-        setClients(Array.isArray(data) ? data : []);
-      } else {
-        setClients([]);
-      }
-
-      // Fetch Appointments
-      const apptRes = await fetch('/api/appointments', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (apptRes.ok) {
-        const data = await apptRes.json();
-        setAppointments(Array.isArray(data) ? data : []);
-      }
-
-      // Fetch Plans & Subscriptions
-      const [plansRes, subRes] = await Promise.all([
-        fetch('/api/plans', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/subscriptions', { headers: { 'Authorization': `Bearer ${token}` } })
-      ]);
-      if (plansRes.ok) setPlans(await plansRes.json());
-      if (subRes.ok) setSubscriptions(await subRes.json());
-
-      // Fetch Pipelines & Stages
-      const pipeRes = await fetch('/api/pipelines', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      let pipes = [];
-      if (pipeRes.ok) {
-        pipes = await pipeRes.json();
-        if (!Array.isArray(pipes)) pipes = [];
-        setPipelines(pipes);
-      } else {
-        setPipelines([]);
-      }
-
-      if (pipes.length > 0) {
-        const defaultPipe = pipes.find((p: any) => p.is_default) || pipes[0];
-        const stageRes = await fetch(`/api/pipelines/${defaultPipe.id}/stages`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        setUser({
+          ...userData,
+          workspace_type: nicheToType[userData.workspace_niche] || 'general'
         });
-        if (stageRes.ok) {
-          const sData = await stageRes.json();
-          setStages(Array.isArray(sData) ? sData : []);
-        } else {
-          setStages([]);
+
+        // Carregar dados auxiliares
+        const [leadsRes, settingsRes, plansRes, subRes, pipelinesRes] = await Promise.all([
+          fetch('/api/leads', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/plans', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/subscriptions', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/pipelines', { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+
+        if (leadsRes.ok) {
+          setClients(await leadsRes.json());
+        }
+
+        if (settingsRes.ok) {
+          setSettings(await settingsRes.json());
+        }
+
+        if (plansRes.ok) setPlans(await plansRes.json());
+        if (subRes.ok) setSubscriptions(await subRes.json());
+
+        if (pipelinesRes.ok) {
+          const pipelinesData = await pipelinesRes.json();
+          if (pipelinesData.length > 0) {
+            try {
+              const stagesRes = await fetch(`/api/pipelines/${pipelinesData[0].id}/stages`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (stagesRes.ok) setStages(await stagesRes.json());
+            } catch (e) {
+              console.warn('⚠️ Falha ao carregar stages, usando defaults:', e);
+            }
+          }
         }
       } else {
-        setStages([]);
+        localStorage.removeItem('nexus_token');
+        setUser(null);
       }
-
     } catch (err) {
-      console.error('⚠️ Backend não respondeu. Ativando modo fallback:', err);
-      // Se o backend não responde, assumir modo simulado para manter UX
+      console.error('⚠️ Erro na conexão:', err);
       if (!backendResponding) {
+        console.warn('⚠️ Backend indisponível, ativando modo simulado...');
         setIsSimulatedMode(true);
-        localStorage.setItem('doboy_simulated_mode', 'true');
+      } else {
+        console.warn('⚠️ Token inválido ou expirado, fazendo logout...');
+        localStorage.removeItem('nexus_token');
+        setUser(null);
       }
-      // Não limpa os dados - mantém estado anterior
     } finally {
       setIsLoading(false);
     }
@@ -170,79 +175,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refreshData();
   }, []);
 
-  // Sincronização offline-first: Garante que qualquer alteração nas configurações 
-  // (incluindo o workspaceType que dita os gráficos renderizados) seja imediatamente salva no navegador,
-  // prevenindo a "perda da visão de negócios" após um F5.
-  useEffect(() => {
-    if (settings) {
-      localStorage.setItem('doboy_settings', JSON.stringify(settings));
-    }
-  }, [settings]);
-
-  const updateClient = async (updatedClient: Client) => {
-    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
-    const token = localStorage.getItem('doboy_token');
+  const updateClient = async (client: Client) => {
     try {
-      await fetch(`/api/leads/${updatedClient.id}`, {
+      const token = localStorage.getItem('nexus_token');
+      await fetch(`/api/leads/${client.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(updatedClient)
+        body: JSON.stringify(client)
       });
+      await refreshData();
     } catch (err) {
-      console.error('Failed to update client:', err);
+      console.error(err);
     }
   };
 
   const deleteClient = async (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
-    const token = localStorage.getItem('doboy_token');
     try {
+      const token = localStorage.getItem('nexus_token');
       await fetch(`/api/leads/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
+      await refreshData();
     } catch (err) {
-      console.error('Failed to delete client:', err);
+      console.error(err);
     }
   };
 
   const updateSettings = async (key: string, value: string) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    const token = localStorage.getItem('doboy_token');
-    try {
-      await fetch(`/api/settings/${key}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ value })
-      });
-    } catch (err) {
-      console.error('Failed to update setting:', err);
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    localStorage.setItem('doboy_settings', JSON.stringify(newSettings));
+
+    if (!isSimulatedMode) {
+      try {
+        const token = localStorage.getItem('nexus_token');
+        // Endpoint correto: PUT /api/settings/:key
+        await fetch(`/api/settings/${key}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ value })
+        });
+      } catch (err) {
+        console.warn('⚠️ Falha ao sincronizar settings com backend:', err);
+      }
     }
   };
 
   const addAppointment = async (appointment: Omit<Appointment, 'id'>) => {
     try {
-      const token = localStorage.getItem('doboy_token');
-      const response = await fetch('/api/appointments', {
+      const token = localStorage.getItem('nexus_token');
+      await fetch('/api/calendar/appointments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(appointment),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(appointment)
       });
-      if (response.ok) {
-        const newApp = await response.json();
-        setAppointments(prev => [...prev, newApp]);
-        return newApp;
-      }
-    } catch (error) {
-      console.error('Erro ao adicionar agendamento:', error);
+      await refreshData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -250,26 +249,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       user, setUser,
       clients, setClients,
+      stages, setStages,
       appointments, setAppointments,
       settings, setSettings,
-      pipelines, stages,
+      pipelines: DEFAULT_PIPELINES,
       isLoading,
+      isSimulatedMode,
       refreshData,
       updateClient,
       deleteClient,
       updateSettings,
-      addAppointment,
-      isSimulatedMode
+      addAppointment
     }}>
       {children}
     </AppContext.Provider>
   );
 }
 
-export function useApp() {
+export const useApp = () => {
   const context = useContext(AppContext);
   if (context === undefined) {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;
-}
+};
