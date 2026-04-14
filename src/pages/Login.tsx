@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Hexagon, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff, User } from 'lucide-react';
-import { motion } from 'motion/react';
 
 interface LoginProps {
   onLogin: (token: string, user: any) => void;
@@ -67,11 +66,7 @@ export function Login({ onLogin }: LoginProps) {
 
   return (
     <div className="min-h-screen bg-bg-main flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
+      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-5 duration-500">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-bg-main font-bold text-2xl shadow-lg shadow-primary/20 mb-4">
             B
@@ -103,8 +98,8 @@ export function Login({ onLogin }: LoginProps) {
                 <label className="text-xs font-bold text-text-sec uppercase tracking-wider ml-1">Nome Completo</label>
                 <div className="relative">
                   <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-sec" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -119,8 +114,8 @@ export function Login({ onLogin }: LoginProps) {
               <label className="text-xs font-bold text-text-sec uppercase tracking-wider ml-1">E-mail Profissional</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-text-sec" size={18} />
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -133,8 +128,8 @@ export function Login({ onLogin }: LoginProps) {
             {view === 'request' && (
               <div className="space-y-2">
                 <label className="text-xs font-bold text-text-sec uppercase tracking-wider ml-1">Nome do Escritório / Empresa</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   value={business}
                   onChange={(e) => setBusiness(e.target.value)}
@@ -148,8 +143,8 @@ export function Login({ onLogin }: LoginProps) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center ml-1">
                   <label className="text-xs font-bold text-text-sec uppercase tracking-wider">Senha</label>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setView('forgot')}
                     className="text-xs text-primary hover:underline"
                   >
@@ -158,8 +153,8 @@ export function Login({ onLogin }: LoginProps) {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-text-sec" size={18} />
-                  <input 
-                    type={showPassword ? "text" : "password"} 
+                  <input
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -177,19 +172,19 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             )}
 
-            <button 
+            <button
               type="submit"
               disabled={isLoading}
               className="w-full bg-primary text-bg-main font-bold py-4 rounded-xl hover:bg-secondary transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/10"
             >
-              {isLoading ? 'Aguarde...' : 
-               view === 'login' ? 'Acessar Sistema' : 
-               view === 'forgot' ? 'Recuperar Senha' : 'Enviar Solicitação'}
+              {isLoading ? 'Aguarde...' :
+                view === 'login' ? 'Acessar Sistema' :
+                  view === 'forgot' ? 'Recuperar Senha' : 'Enviar Solicitação'}
               {!isLoading && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
             </button>
 
             {view !== 'login' && (
-              <button 
+              <button
                 type="button"
                 onClick={() => setView('login')}
                 className="w-full text-center text-sm text-text-sec hover:text-primary transition-colors font-medium"
@@ -202,14 +197,14 @@ export function Login({ onLogin }: LoginProps) {
 
         <p className="text-center mt-8 text-text-sec text-sm">
           {view === 'request' ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}
-          <button 
+          <button
             onClick={() => setView(view === 'request' ? 'login' : 'request')}
             className="text-primary font-semibold hover:underline ml-1"
           >
             {view === 'request' ? 'Faça login' : 'Solicite acesso'}
           </button>
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

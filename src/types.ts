@@ -3,6 +3,8 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'gestor' | 'vendedor';
+  workspace_niche?: 'law' | 'barber' | 'saas' | 'general';
+  subscription_tier?: 'starter' | 'pro' | 'elite';
 }
 
 export interface Pipeline {
@@ -28,7 +30,7 @@ export interface Workflow {
   steps?: any[]; // Array of steps for the visual builder
 }
 
-export type Page = 'dashboard' | 'kanban' | 'calendar' | 'subscriptions' | 'form' | 'contacts' | 'automation' | 'analytics' | 'integrations' | 'settings' | 'login' | 'users' | 'profile' | 'notifications';
+export type Page = 'dashboard' | 'kanban' | 'calendar' | 'subscriptions' | 'form' | 'contacts' | 'automation' | 'agents' | 'whatsapp' | 'analytics' | 'integrations' | 'settings' | 'login' | 'users' | 'profile' | 'notifications';
 
 export interface Client {
   id: string;

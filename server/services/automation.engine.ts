@@ -62,9 +62,9 @@ export class AutomationEngine {
    */
   async queueExecution(rule: AutomationRule, triggerData: TriggerData): Promise<void> {
     console.log(`📥 [AUTOMATION] Enfileirando: ${rule.name} | Trigger: ${triggerData.type}`);
-    
+
     this.executionQueue.push({ rule, triggerData });
-    
+
     // Inicia processamento se não estiver rodando
     if (!this.isProcessing) {
       await this.processQueue();
@@ -79,7 +79,7 @@ export class AutomationEngine {
 
     while (this.executionQueue.length > 0) {
       const { rule, triggerData } = this.executionQueue.shift()!;
-      
+
       try {
         await this.executeAutomation(rule, triggerData);
       } catch (error: any) {
@@ -124,7 +124,7 @@ export class AutomationEngine {
       // Executa cada step do workflow
       for (let i = 0; i < rule.steps.length; i++) {
         const step = rule.steps[i];
-        
+
         // Pula o trigger (é apenas descritivo)
         if (step.type === 'trigger') {
           stepsExecuted++;
@@ -132,7 +132,7 @@ export class AutomationEngine {
         }
 
         console.log(`⚙️ [AUTOMATION] Executando step ${i + 1}/${rule.steps.length}: ${step.title}`);
-        
+
         await this.executeStep(step, context);
         stepsExecuted++;
 
@@ -288,7 +288,7 @@ export class AutomationEngine {
     context: ExecutionContext
   ): Promise<void> {
     const condition = config.condition;
-    
+
     // Exemplo: "lead_status == 'Novo Lead'"
     if (condition) {
       const [left, operator, right] = condition.split(' ');
@@ -319,7 +319,7 @@ export class AutomationEngine {
     context: ExecutionContext
   ): Promise<void> {
     const delayMs = this.resolveVariable(config.duration_ms || config.duration_seconds * 1000, context);
-    
+
     console.log(`⏳ [DELAY] Aguardando ${delayMs}ms`);
     await new Promise(resolve => setTimeout(resolve, Number(delayMs)));
   }
@@ -333,7 +333,7 @@ export class AutomationEngine {
     context: ExecutionContext
   ): Promise<void> {
     const targetWorkflowId = config.targetWorkflowId || step.targetWorkflowId;
-    
+
     if (!targetWorkflowId) {
       throw new Error('targetWorkflowId não especificado no step chain');
     }
@@ -399,7 +399,7 @@ export class AutomationEngine {
    */
   async triggerLeadCreated(leadId: string): Promise<void> {
     const lead = await db.prepare(`SELECT * FROM leads WHERE id = $1`).get(leadId);
-    
+
     if (!lead) return;
 
     const rules = await db.prepare(
@@ -437,7 +437,7 @@ export class AutomationEngine {
    */
   async triggerLeadStatusChanged(leadId: string, oldStatus: string, newStatus: string): Promise<void> {
     const lead = await db.prepare(`SELECT * FROM leads WHERE id = $1`).get(leadId);
-    
+
     if (!lead) return;
 
     const rules = await db.prepare(

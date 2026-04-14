@@ -112,7 +112,18 @@ const MOCK_DATA: any = {
   ],
   whatsapp_instances: [],
   whatsapp_messages: [],
-  automation_logs: []
+  automation_logs: [],
+  // Tabelas de segurança de webhooks
+  webhook_security_rules: [
+    { id: 'rule_ip_whitelist', rule_name: 'IP Whitelist Validation', rule_type: 'ip_whitelist', is_active: true, priority: 100, config: JSON.stringify({ enabled: true, whitelist: [], reject_if_empty: false }) },
+    { id: 'rule_instance_validation', rule_name: 'Instance ID Validation', rule_type: 'instance_validation', is_active: true, priority: 200, config: JSON.stringify({ enabled: true, require_valid_instance: true, reject_unknown_instance: true }) },
+    { id: 'rule_rate_limit', rule_name: 'Rate Limiting', rule_type: 'rate_limit', is_active: true, priority: 300, config: JSON.stringify({ enabled: true, max_requests_per_minute: 100, max_requests_per_hour: 1000, block_duration_minutes: 30 }) },
+    { id: 'rule_payload_size', rule_name: 'Payload Size Validation', rule_type: 'signature_validation', is_active: true, priority: 400, config: JSON.stringify({ enabled: true, max_payload_size_bytes: 1048576, reject_oversized: true }) }
+  ],
+  webhook_audit_log: [],
+  webhook_rate_limits: [],
+  webhook_allowed_instances: [],
+  webhook_blocked_ips: []
 };
 
 try {

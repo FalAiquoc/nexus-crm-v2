@@ -65,7 +65,9 @@ async function startServer() {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role
+          role: user.role,
+          workspace_niche: user.workspace_niche || 'general',
+          subscription_tier: user.subscription_tier || 'starter'
         }
       });
     } catch (error) {
@@ -129,10 +131,13 @@ async function startServer() {
 
   app.get("/api/auth/me", authenticate, async (req: any, res) => {
     try {
-      const user = await db.prepare("SELECT id, name, email, role FROM users WHERE id = $1").get(req.userId);
+      const user = await db.prepare("SELECT id, name, email, role, workspace_niche, subscription_tier FROM users WHERE id = $1").get(req.userId);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
+      // Garantir defaults para usuários legados sem as colunas preenchidas
+      user.workspace_niche = user.workspace_niche || 'general';
+      user.subscription_tier = user.subscription_tier || 'starter';
       res.json(user);
     } catch (error) {
       res.status(500).json({ error: "Erro no servidor" });
@@ -816,14 +821,14 @@ async function startServer() {
   app.post("/api/settings/blacklist", authenticate, async (req, res) => {
     const { phone_number, description } = req.body;
     if (!phone_number) return res.status(400).json({ error: "Número obrigatório" });
-    
+
     try {
       // Limpa o número (remove +, espaços, etc)
       const cleanPhone = phone_number.replace(/\D/g, '');
       await db.prepare(
         "INSERT INTO whatsapp_blacklist (phone_number, description) VALUES ($1, $2) ON CONFLICT (phone_number) DO UPDATE SET description = $2"
       ).run(cleanPhone, description || 'Cadastrado via API');
-      
+
       res.json({ success: true, message: `Número ${cleanPhone} bloqueado.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -874,19 +879,74 @@ async function startServer() {
   // ==========================================
 
   // Webhook Evolution API - Recebe mensagens do WhatsApp
+  // MIDDLEWARE DE SEGURANÇA: Valida IPs, instâncias, rate limiting, payload
   app.post("/api/webhook/whatsapp", async (req, res) => {
+    const startTime = Date.now();
+    const body = req.body;
+
     try {
-      const body = req.body;
       console.log('📥 [WEBHOOK] Mensagem recebida da Evolution API:', JSON.stringify(body, null, 2));
 
-      // 1. Filtro de Blacklist (Ignora contatos pessoais antes de qualquer processamento)
-      if (body.event === 'MESSAGES_UPSERT' && body.data) {
-        const phoneNumber = body.data.key?.remoteJid?.replace('@s.whatsapp.net', '');
-        
-        // Verifica se o número está na blacklist
+      // Validação de segurança (middleware manual para melhor controle)
+      const { secureWebhook, validateIP, checkRateLimit, validatePayloadSize, validatePayloadSchema, validateInstance, logWebhookAudit, generatePayloadHash } =
+        await import('./middleware/webhook.security');
+
+      const sourceIP = req.ip || req.connection?.remoteAddress || null;
+      let instanceName = body.data?.key?.instanceName || body.data?.instanceName;
+      let phoneNumber = body.data?.key?.remoteJid?.replace('@s.whatsapp.net', '');
+      const eventType = body.event || 'UNKNOWN';
+      const payloadSize = JSON.stringify(body).length;
+
+      // 1. Validação de IP
+      const ipValidation = await validateIP(sourceIP);
+      if (!ipValidation.valid) {
+        await logWebhookAudit(null, eventType, sourceIP, null, payloadSize, 'rejected', ipValidation.reason, Date.now() - startTime, generatePayloadHash(body), { step: 'ip_validation' });
+        return res.status(403).json({ error: 'Forbidden', reason: ipValidation.reason, security: true });
+      }
+
+      // 2. Rate Limiting por IP
+      const rateLimitIP = await checkRateLimit(sourceIP, 'ip');
+      if (!rateLimitIP.valid) {
+        await logWebhookAudit(null, eventType, sourceIP, null, payloadSize, 'blocked', rateLimitIP.reason, Date.now() - startTime, generatePayloadHash(body), { step: 'rate_limit_ip' });
+        return res.status(429).json({ error: 'Too Many Requests', reason: rateLimitIP.reason, security: true });
+      }
+
+      // 3. Validação de Payload Size
+      const payloadValidation = validatePayloadSize(body);
+      if (!payloadValidation.valid) {
+        await logWebhookAudit(null, eventType, sourceIP, null, payloadSize, 'rejected', payloadValidation.reason, Date.now() - startTime, generatePayloadHash(body), { step: 'payload_size' });
+        return res.status(413).json({ error: 'Payload Too Large', reason: payloadValidation.reason, security: true });
+      }
+
+      // 4. Validação de Schema (evitar injeção XSS/SQL)
+      const schemaValidation = validatePayloadSchema(eventType, body);
+      if (!schemaValidation.valid) {
+        await logWebhookAudit(null, eventType, sourceIP, null, payloadSize, 'rejected', schemaValidation.reason, Date.now() - startTime, generatePayloadHash(body), { step: 'schema_validation' });
+        return res.status(400).json({ error: 'Invalid Payload Schema', reason: schemaValidation.reason, security: true });
+      }
+
+      // 5. Validação de Instância
+      if (instanceName) {
+        const instanceValidation = await validateInstance(instanceName, body.apiKey);
+        if (!instanceValidation.valid) {
+          await logWebhookAudit(null, eventType, sourceIP, phoneNumber, payloadSize, 'rejected', instanceValidation.reason, Date.now() - startTime, generatePayloadHash(body), { step: 'instance_validation', instance_name: instanceName });
+          return res.status(403).json({ error: 'Forbidden', reason: instanceValidation.reason, security: true });
+        }
+
+        // Rate Limiting por instância
+        const rateLimitInstance = await checkRateLimit(instanceName, 'instance');
+        if (!rateLimitInstance.valid) {
+          await logWebhookAudit(null, eventType, sourceIP, phoneNumber, payloadSize, 'blocked', rateLimitInstance.reason, Date.now() - startTime, generatePayloadHash(body), { step: 'rate_limit_instance', instance_name: instanceName });
+          return res.status(429).json({ error: 'Too Many Requests', reason: rateLimitInstance.reason, security: true });
+        }
+      }
+
+      // 6. Blacklist (Ignora contatos pessoais antes de qualquer processamento)
+      if (eventType === 'MESSAGES_UPSERT' && body.data && phoneNumber) {
         const isBlacklisted = await db.prepare("SELECT 1 FROM whatsapp_blacklist WHERE phone_number = ?").get(phoneNumber);
         if (isBlacklisted) {
           console.log(`🚫 [BLACKLIST] Mensagem de ${phoneNumber} ignorada automaticamente.`);
+          await logWebhookAudit(null, eventType, sourceIP, phoneNumber, payloadSize, 'blocked', 'Número na blacklist', Date.now() - startTime, generatePayloadHash(body), { step: 'blacklist_check' });
           return res.json({ success: true, status: 'ignored_by_blacklist' });
         }
       }
@@ -913,7 +973,7 @@ async function startServer() {
         // 3. Tagueamento Automático como #cliente
         // Verifica se o lead existe, senão cria com a tag
         const existingLead = await db.prepare("SELECT id, custom_fields FROM leads WHERE phone = ?").get(phoneNumber);
-        
+
         if (!existingLead) {
           const leadId = Math.random().toString(36).substr(2, 9);
           const initialCustomFields = JSON.stringify({ tags: ["#cliente"] });
@@ -923,10 +983,10 @@ async function startServer() {
           console.log(`🏷️ [AUTO-TAG] Novo lead criado e tagueado como #cliente: ${phoneNumber}`);
         } else {
           // Atualiza tags se ainda não tiver
-          let customFields = typeof existingLead.custom_fields === 'string' 
-            ? JSON.parse(existingLead.custom_fields) 
+          let customFields = typeof existingLead.custom_fields === 'string'
+            ? JSON.parse(existingLead.custom_fields)
             : (existingLead.custom_fields || {});
-          
+
           if (!customFields.tags) customFields.tags = [];
           if (!customFields.tags.includes("#cliente")) {
             customFields.tags.push("#cliente");
@@ -952,9 +1012,44 @@ async function startServer() {
         ).run(status, JSON.stringify(body.data), instanceName);
       }
 
+      // Log de sucesso
+      const { logWebhookAudit, generatePayloadHash } = await import('./middleware/webhook.security');
+      await logWebhookAudit(
+        null,
+        eventType,
+        req.ip || req.connection?.remoteAddress || null,
+        phoneNumber,
+        JSON.stringify(body).length,
+        'approved',
+        null,
+        Date.now() - startTime,
+        generatePayloadHash(body),
+        { processing_complete: true }
+      );
+
       res.json({ success: true });
     } catch (error: any) {
       console.error('❌ [WEBHOOK] Erro ao processar webhook:', error);
+
+      // Log de erro
+      try {
+        const { logWebhookAudit, generatePayloadHash } = await import('./middleware/webhook.security');
+        await logWebhookAudit(
+          null,
+          eventType || 'UNKNOWN',
+          req.ip || req.connection?.remoteAddress || null,
+          phoneNumber || null,
+          JSON.stringify(body || {}).length,
+          'rejected',
+          error.message,
+          Date.now() - startTime,
+          body ? generatePayloadHash(body) : 'no-payload',
+          { error_step: 'processing', error: error.message }
+        );
+      } catch (auditError) {
+        console.error('❌ [WEBHOOK] Erro ao registrar auditoria:', auditError);
+      }
+
       res.status(500).json({ error: error.message });
     }
   });
@@ -1006,16 +1101,193 @@ async function runAutoMigrations() {
     // Compatível com JSONB do Postgres no db.ts
     if (!isSimulatedMode) {
       await db.exec(`
-        UPDATE leads 
+        UPDATE leads
         SET custom_fields = jsonb_set(
-            COALESCE(custom_fields, '{}'::jsonb), 
-            '{tags}', 
+            COALESCE(custom_fields, '{}'::jsonb),
+            '{tags}',
             COALESCE(custom_fields->'tags', '[]'::jsonb) || '["#cliente"]'::jsonb
         )
         WHERE NOT (custom_fields ? 'tags' AND custom_fields->'tags' @> '[\"#cliente\"]'::jsonb);
       `);
       console.log('✅ Tagueamento retroativo #cliente concluído.');
     }
+
+    // 3. Criar tabelas de segurança de webhooks
+    console.log('🔒 Verificando tabelas de segurança de webhooks...');
+
+    // webhook_security_rules
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_security_rules (
+        id TEXT PRIMARY KEY,
+        rule_name TEXT NOT NULL,
+        rule_type TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        priority INTEGER DEFAULT 0,
+        config TEXT DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabela webhook_security_rules verificada/criada.');
+
+    // webhook_audit_log
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_audit_log (
+        id TEXT PRIMARY KEY,
+        instance_id TEXT,
+        event_type TEXT NOT NULL,
+        source_ip TEXT,
+        phone_number TEXT,
+        payload_size INTEGER,
+        validation_status TEXT DEFAULT 'pending',
+        rejection_reason TEXT,
+        processing_time_ms INTEGER,
+        payload_hash TEXT,
+        metadata TEXT DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabela webhook_audit_log verificada/criada.');
+
+    // webhook_rate_limits
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_rate_limits (
+        id TEXT PRIMARY KEY,
+        identifier TEXT NOT NULL,
+        identifier_type TEXT,
+        window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        request_count INTEGER DEFAULT 1,
+        max_requests INTEGER DEFAULT 100,
+        window_duration_seconds INTEGER DEFAULT 60,
+        is_blocked BOOLEAN DEFAULT FALSE,
+        blocked_until TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabela webhook_rate_limits verificada/criada.');
+
+    // webhook_allowed_instances
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_allowed_instances (
+        id TEXT PRIMARY KEY,
+        instance_name TEXT NOT NULL,
+        instance_id TEXT,
+        api_key_hash TEXT NOT NULL,
+        allowed_events TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        ip_whitelist TEXT,
+        max_requests_per_minute INTEGER DEFAULT 60,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabela webhook_allowed_instances verificada/criada.');
+
+    // webhook_blocked_ips
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_blocked_ips (
+        id TEXT PRIMARY KEY,
+        ip_address TEXT NOT NULL,
+        reason TEXT,
+        blocked_until TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabela webhook_blocked_ips verificada/criada.');
+
+    // 4. Inserir regras de segurança padrão (se não existirem)
+    const existingRules = await db.prepare("SELECT COUNT(*) as count FROM webhook_security_rules").get() as any;
+    if (existingRules.count === 0) {
+      console.log('📝 Inserindo regras de segurança padrão...');
+
+      await db.prepare(
+        "INSERT INTO webhook_security_rules (id, rule_name, rule_type, priority, config) VALUES ($1, $2, $3, $4, $5)"
+      ).run(
+        'rule_ip_whitelist',
+        'IP Whitelist Validation',
+        'ip_whitelist',
+        100,
+        JSON.stringify({
+          enabled: true,
+          whitelist: [],
+          reject_if_empty: false
+        })
+      );
+
+      await db.prepare(
+        "INSERT INTO webhook_security_rules (id, rule_name, rule_type, priority, config) VALUES ($1, $2, $3, $4, $5)"
+      ).run(
+        'rule_instance_validation',
+        'Instance ID Validation',
+        'instance_validation',
+        200,
+        JSON.stringify({
+          enabled: true,
+          require_valid_instance: true,
+          reject_unknown_instance: true
+        })
+      );
+
+      await db.prepare(
+        "INSERT INTO webhook_security_rules (id, rule_name, rule_type, priority, config) VALUES ($1, $2, $3, $4, $5)"
+      ).run(
+        'rule_rate_limit',
+        'Rate Limiting',
+        'rate_limit',
+        300,
+        JSON.stringify({
+          enabled: true,
+          max_requests_per_minute: 100,
+          max_requests_per_hour: 1000,
+          block_duration_minutes: 30
+        })
+      );
+
+      await db.prepare(
+        "INSERT INTO webhook_security_rules (id, rule_name, rule_type, priority, config) VALUES ($1, $2, $3, $4, $5)"
+      ).run(
+        'rule_payload_size',
+        'Payload Size Validation',
+        'signature_validation',
+        400,
+        JSON.stringify({
+          enabled: true,
+          max_payload_size_bytes: 1048576,
+          reject_oversized: true
+        })
+      );
+
+      console.log('✅ Regras de segurança padrão inseridas.');
+    }
+
+    // 5. Migrar instâncias existentes para whitelist
+    const existingInstances = await db.prepare("SELECT COUNT(*) as count FROM webhook_allowed_instances").get() as any;
+    if (existingInstances.count === 0) {
+      console.log('📝 Migrando instâncias existentes para whitelist...');
+
+      const instances = await db.prepare("SELECT id, instance_name, api_key FROM whatsapp_instances").all() as any;
+      if (instances && instances.length > 0) {
+        const crypto = await import('crypto');
+        for (const instance of instances) {
+          const apiKeyHash = crypto.createHash('sha256').update(instance.api_key).digest('hex');
+          await db.prepare(
+            "INSERT INTO webhook_allowed_instances (id, instance_name, instance_id, api_key_hash, allowed_events, is_active) VALUES ($1, $2, $3, $4, $5, $6)"
+          ).run(
+            `allowed_${instance.id}`,
+            instance.instance_name,
+            instance.id,
+            apiKeyHash,
+            JSON.stringify(['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED']),
+            true
+          );
+        }
+        console.log(`✅ ${instances.length} instâncias migradas para whitelist.`);
+      }
+    }
+
+    console.log('🔒 Segurança de webhooks configurada com sucesso!');
   } catch (error) {
     console.error('❌ Erro durante migrações automáticas:', error);
   }

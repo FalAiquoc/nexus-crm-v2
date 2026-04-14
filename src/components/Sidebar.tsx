@@ -1,5 +1,4 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
   KanbanSquare,
@@ -17,8 +16,10 @@ import {
   Monitor,
   PanelLeftClose,
   MessageCircle,
-  Bot
+  Bot,
+  Lock
 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import { Page } from '../types';
 
 interface SidebarProps {
@@ -36,7 +37,6 @@ interface SidebarProps {
   user: any;
   pendingRequestsCount?: number;
 }
-
 
 export function Sidebar({
   currentPage,
@@ -68,37 +68,50 @@ export function Sidebar({
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  
+  const { showToast } = useToast();
+
+  const userTier = user?.subscription_tier || 'starter';
+  const getTierLevel = (tier: string) => {
+    if (tier === 'elite') return 3;
+    if (tier === 'pro') return 2;
+    return 1; // starter
+  };
+  const userTierLevel = getTierLevel(userTier);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true, tierRequired: 'starter' },
     {
       id: 'calendar',
       label: 'Agenda',
       icon: Calendar,
-      show: workspaceType === 'barbershop' || workspaceType === 'law_firm'
+      show: workspaceType === 'barbershop' || workspaceType === 'law_firm',
+      tierRequired: 'starter'
     },
     {
       id: 'kanban',
       label: workspaceType === 'law_firm' ? 'Processos' : 'Kanban',
       icon: KanbanSquare,
-      show: true
+      show: true,
+      tierRequired: 'starter'
     },
     {
       id: 'subscriptions',
       label: workspaceType === 'barbershop' ? 'Clube / Planos' : 'Assinaturas',
       icon: CreditCard,
-      show: workspaceType === 'barbershop'
+      show: workspaceType === 'barbershop',
+      tierRequired: 'starter'
     },
-    { id: 'form', label: workspaceType === 'barbershop' ? 'Novo Cliente' : 'Novo Lead', icon: UserPlus, show: true },
-    { id: 'contacts', label: 'Contatos', icon: Users, show: true },
-    { id: 'automation', label: 'Automação', icon: Zap, show: true },
-    { id: 'agents', label: 'Agentes IA', icon: Bot, show: true },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, show: true },
-    { id: 'analytics', label: 'Relatórios', icon: BarChart3, show: true },
-    { id: 'integrations', label: 'Integrações', icon: Link2, show: true },
-    { id: 'users', label: 'Usuários', icon: Users, show: user?.role === 'admin' },
-    { id: 'settings', label: 'Ajustes', icon: Settings, show: true },
-  ] as const;
+    { id: 'form', label: workspaceType === 'barbershop' ? 'Novo Cliente' : 'Novo Lead', icon: UserPlus, show: true, tierRequired: 'starter' },
+    { id: 'contacts', label: 'Contatos', icon: Users, show: true, tierRequired: 'starter' },
+    { id: 'automation', label: 'Automação', icon: Zap, show: true, tierRequired: 'starter' },
+    { id: 'agents', label: 'Agentes IA', icon: Bot, show: true, tierRequired: 'starter' },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, show: true, tierRequired: 'starter' },
+    { id: 'analytics', label: 'Relatórios', icon: BarChart3, show: true, tierRequired: 'starter' },
+    { id: 'integrations', label: 'Integrações', icon: Link2, show: true, tierRequired: 'starter' },
+    { id: 'users', label: 'Usuários', icon: Users, show: user?.role === 'admin', tierRequired: 'starter' },
+    { id: 'settings', label: 'Ajustes', icon: Settings, show: true, tierRequired: 'starter' },
+  ];
 
   const visibleItems = navItems.filter(item => item.show);
 
@@ -120,7 +133,11 @@ export function Sidebar({
     scrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  const handleNavigate = (page: Page) => {
+  const handleNavigate = (page: Page, requiredTier: string) => {
+    if (getTierLevel(requiredTier) > userTierLevel) {
+      showToast(`Ferramenta disponível apenas no plano ${requiredTier.toUpperCase()}. Faça o upgrade para acessar.`, 'error');
+      return;
+    }
     onNavigate(page);
     onCloseMobileMenu();
   };
@@ -128,53 +145,49 @@ export function Sidebar({
   return (
     <>
       {/* Mobile Drawer Overlay */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onCloseMobileMenu}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden"
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-bg-sidebar border-r border-border-color z-[70] md:hidden flex flex-col"
-            >
-              <div className="p-6 border-b border-border-color flex items-center justify-between">
-                <div className="flex items-center gap-2 max-w-[120px] xs:max-w-none px-2">
-                  <Hexagon className="text-primary shrink-0" size={24} strokeWidth={1.5} />
-                  <div className="flex flex-col leading-[1.1]">
-                    <span className="text-sm font-black text-primary tracking-tighter uppercase">{brandDisplay.top}</span>
-                    <span className="text-sm font-black text-primary tracking-tighter uppercase">{brandDisplay.bottom}</span>
-                  </div>
+      {isMobileMenuOpen && (
+        <>
+          <div
+            onClick={onCloseMobileMenu}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden"
+          />
+          <div
+            className="fixed inset-y-0 left-0 w-[280px] bg-bg-sidebar border-r border-border-color z-[70] md:hidden flex flex-col"
+          >
+            <div className="p-6 border-b border-border-color flex items-center justify-between">
+              <div className="flex items-center gap-2 max-w-[120px] xs:max-w-none px-2">
+                <Hexagon className="text-primary shrink-0" size={24} strokeWidth={1.5} />
+                <div className="flex flex-col leading-[1.1]">
+                  <span className="text-sm font-black text-primary tracking-tighter uppercase">{brandDisplay.top}</span>
+                  <span className="text-sm font-black text-primary tracking-tighter uppercase">{brandDisplay.bottom}</span>
                 </div>
-                <button
-                  onClick={onCloseMobileMenu}
-                  className="p-2 text-text-sec hover:text-text-main hover:bg-bg-card rounded-lg transition-colors"
-                >
-                  <X size={20} />
-                </button>
               </div>
+              <button
+                onClick={onCloseMobileMenu}
+                className="p-2 text-text-sec hover:text-text-main hover:bg-bg-card rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-
-              <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-                {visibleItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentPage === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigate(item.id as Page)}
-                      className={`w-full flex items-center space-x-4 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive
-                        ? 'bg-primary/10 text-primary border border-primary/20'
+            <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPage === item.id;
+                const isLocked = getTierLevel(item.tierRequired) > userTierLevel;
+                
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigate(item.id as Page, item.tierRequired)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : isLocked 
+                        ? 'text-text-sec/50 hover:bg-bg-card opacity-60' 
                         : 'text-text-sec hover:text-text-main hover:bg-bg-card'
-                        }`}
-                    >
+                      }`}
+                  >
+                    <div className="flex items-center space-x-4">
                       <div className="relative">
                         <Icon size={20} className={isActive ? 'text-primary' : ''} strokeWidth={isActive ? 2.5 : 2} />
                         {item.id === 'users' && pendingRequestsCount > 0 && (
@@ -182,53 +195,54 @@ export function Sidebar({
                         )}
                       </div>
                       <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-
-              <div className="p-4 border-t border-border-color space-y-2">
-                <div className="flex items-center gap-1 bg-bg-main/50 p-1 rounded-lg border border-border-color">
-                  {(['fixed', 'auto', 'minimized'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSidebarMode?.(mode);
-                      }}
-                      title={mode.charAt(0).toUpperCase() + mode.slice(1)}
-                      className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
-                        }`}
-                    >
-                      {mode === 'fixed' && <Monitor size={14} />}
-                      {mode === 'auto' && <Zap size={14} />}
-                      {mode === 'minimized' && <PanelLeftClose size={14} />}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="px-4 py-2 bg-primary/5 rounded-xl border border-primary/10 mb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest text-shadow-sm">v2.2.0 Platinum</span>
-                    <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
                     </div>
-                  </div>
-                  <p className="text-[9px] text-text-sec font-medium leading-tight">Módulo BI & Analytics Restaurado</p>
-                </div>
-                <button
-                  onClick={onLogout}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-amber-500/80 hover:text-amber-500 hover:bg-amber-500/10 transition-all font-bold text-xs"
-                >
-                  <LogOut size={18} />
-                  <span className="whitespace-nowrap">Encerrar Sessão</span>
-                </button>
+                    {isLocked && <Lock size={14} className="text-rose-500" />}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="p-4 border-t border-border-color space-y-2">
+              <div className="flex items-center gap-1 bg-bg-main/50 p-1 rounded-lg border border-border-color">
+                {(['fixed', 'auto', 'minimized'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSidebarMode?.(mode);
+                    }}
+                    title={mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    className={`flex-1 flex justify-center py-1.5 rounded-md transition-all ${sidebarMode === mode ? 'bg-primary text-bg-main' : 'text-text-sec hover:text-text-main'
+                      }`}
+                  >
+                    {mode === 'fixed' && <Monitor size={14} />}
+                    {mode === 'auto' && <Zap size={14} />}
+                    {mode === 'minimized' && <PanelLeftClose size={14} />}
+                  </button>
+                ))}
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+
+              <div className="px-4 py-2 bg-primary/5 rounded-xl border border-primary/10 mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest text-shadow-sm">v2.2.0 Platinum</span>
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                  </div>
+                </div>
+                <p className="text-[9px] text-text-sec font-medium leading-tight">Módulo BI & Analytics Restaurado</p>
+              </div>
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-amber-500/80 hover:text-amber-500 hover:bg-amber-500/10 transition-all font-bold text-xs"
+              >
+                <LogOut size={18} />
+                <span className="whitespace-nowrap">Encerrar Sessão</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Desktop Sidebar */}
       <div
@@ -252,30 +266,48 @@ export function Sidebar({
           {visibleItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
+            const isLocked = getTierLevel(item.tierRequired) > userTierLevel;
+            
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id as Page)}
-                title={effectiveCollapsed ? item.label : ''}
+                onClick={() => {
+                  if (getTierLevel(item.tierRequired) > userTierLevel) {
+                    showToast(`Ferramenta disponível apenas no plano ${item.tierRequired.toUpperCase()}. Faça o upgrade para acessar.`, 'error');
+                    return;
+                  }
+                  onNavigate(item.id as Page);
+                }}
+                title={effectiveCollapsed ? (isLocked ? `${item.label} (Premium)` : item.label) : ''}
                 className={`w-full flex items-center space-x-4 px-3 py-3 rounded-lg transition-all duration-200 font-medium group ${isActive
                   ? 'bg-primary/10 text-primary border border-primary/20'
-                  : 'text-text-sec hover:text-text-main hover:bg-bg-card'
+                  : isLocked
+                    ? 'text-text-sec/50 hover:bg-bg-card opacity-60'
+                    : 'text-text-sec hover:text-text-main hover:bg-bg-card'
                   }`}
               >
                 <div className="relative">
                   <Icon size={20} className={`${isActive ? 'text-primary' : ''} shrink-0`} strokeWidth={isActive ? 2.5 : 2} />
+                  {isLocked && effectiveCollapsed && (
+                     <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-bg-sidebar shadow">
+                       <Lock size={8} className="text-rose-500" />
+                     </span>
+                  )}
                   {item.id === 'users' && pendingRequestsCount > 0 && (
                     <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-bg-sidebar transition-all ${effectiveCollapsed ? 'scale-110' : 'scale-100'}`} />
                   )}
                 </div>
-                <span className={`whitespace-nowrap transition-all duration-300 ${effectiveCollapsed ? 'opacity-0 w-0 translate-x-4' : 'opacity-100 w-auto translate-x-0'}`}>
-                  {item.label}
-                  {item.id === 'users' && pendingRequestsCount > 0 && !effectiveCollapsed && (
-                    <span className="ml-2 px-1.5 py-0.5 bg-rose-500 text-[10px] text-white rounded-md font-bold">
-                      {pendingRequestsCount}
-                    </span>
-                  )}
-                </span>
+                <div className={`whitespace-nowrap transition-all duration-300 flex items-center flex-1 justify-between ${effectiveCollapsed ? 'opacity-0 w-0 translate-x-4 overflow-hidden' : 'opacity-100 w-auto translate-x-0'}`}>
+                  <span className="flex items-center truncate">
+                    {item.label}
+                    {item.id === 'users' && pendingRequestsCount > 0 && !effectiveCollapsed && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-rose-500 text-[10px] text-white rounded-md font-bold shrink-0">
+                        {pendingRequestsCount}
+                      </span>
+                    )}
+                  </span>
+                  {isLocked && <Lock size={14} className="text-rose-500 shrink-0 ml-2" />}
+                </div>
               </button>
             );
           })}
@@ -349,11 +381,7 @@ export function Sidebar({
                   }`}
               >
                 {isActive && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute inset-0 bg-primary/5 rounded-xl"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
+                  <div className="absolute inset-0 bg-primary/5 rounded-xl transition-all" />
                 )}
                 <Icon size={20} strokeWidth={isActive ? 2.5 : 2} className="relative z-10" />
                 <span className="text-[9px] font-bold uppercase tracking-widest mt-1 relative z-10">{item.label}</span>
