@@ -3,24 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { Dashboard } from "./pages/Dashboard";
-import { Kanban } from "./pages/Kanban";
-import { ClientForm } from "./pages/ClientForm";
-import { Contacts } from "./pages/Contacts";
-import { Automation } from "./pages/Automation";
-import { WhatsAppInstances } from "./pages/WhatsAppInstances";
-import { Calendar } from "./pages/Calendar";
-import { Subscriptions } from "./pages/Subscriptions";
-import { Analytics } from "./pages/Analytics";
-import { Integrations } from "./pages/Integrations";
-import { Settings } from "./pages/Settings";
-import { Users } from "./pages/Users";
-import { Profile } from "./pages/Profile";
-import { Notifications } from "./pages/Notifications";
-import { Login } from "./pages/Login";
 import { ClientModal } from "./components/ClientModal";
 import { useApp } from "./context/AppContext";
 import { useToast } from "./context/ToastContext";
@@ -28,6 +13,24 @@ import { Page, Client } from "./types";
 import { AlertTriangle, Trash2, PlayCircle } from "lucide-react";
 
 import { PRESET_THEMES, ThemeName } from "./constants";
+
+// Lazy loaded pages - code splitting automático
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Kanban = lazy(() => import("./pages/Kanban"));
+const ClientForm = lazy(() => import("./pages/ClientForm"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const Automation = lazy(() => import("./pages/Automation"));
+const AgentBuilder = lazy(() => import("./pages/AgentBuilder"));
+const WhatsAppInstances = lazy(() => import("./pages/WhatsAppInstances"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+const Subscriptions = lazy(() => import("./pages/Subscriptions"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Integrations = lazy(() => import("./pages/Integrations"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Users = lazy(() => import("./pages/Users"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Login = lazy(() => import("./pages/Login"));
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
@@ -177,44 +180,60 @@ export default function App() {
   }
 
   const renderPage = () => {
+    const PageWrapper = ({ children }: { children: React.ReactNode }) => (
+      <Suspense
+        fallback={
+          <div className="flex h-[400px] items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
+    );
+
     switch (currentPage) {
       case "dashboard":
-        return <Dashboard onSelectClient={setSelectedClient} />;
+        return <PageWrapper><Dashboard onSelectClient={setSelectedClient} /></PageWrapper>;
       case "kanban":
-        return <Kanban onSelectClient={setSelectedClient} />;
+        return <PageWrapper><Kanban onSelectClient={setSelectedClient} /></PageWrapper>;
       case "calendar":
-        return <Calendar />;
+        return <PageWrapper><Calendar /></PageWrapper>;
       case "subscriptions":
-        return <Subscriptions />;
+        return <PageWrapper><Subscriptions /></PageWrapper>;
       case "contacts":
         return (
-          <Contacts
-            onAddClient={() => setCurrentPage("form")}
-            onSelectClient={setSelectedClient}
-          />
+          <PageWrapper>
+            <Contacts
+              onAddClient={() => setCurrentPage("form")}
+              onSelectClient={setSelectedClient}
+            />
+          </PageWrapper>
         );
       case "form":
-        return <ClientForm onAddClient={handleAddClient} />;
+        return <PageWrapper><ClientForm onAddClient={handleAddClient} /></PageWrapper>;
       case "automation":
-        return <Automation />;
+        return <PageWrapper><Automation /></PageWrapper>;
+      case "agents":
+        return <PageWrapper><AgentBuilder /></PageWrapper>;
       case "whatsapp":
-        return <WhatsAppInstances />;
+        return <PageWrapper><WhatsAppInstances /></PageWrapper>;
       case "analytics":
-        return <Analytics />;
+        return <PageWrapper><Analytics /></PageWrapper>;
       case "integrations":
-        return <Integrations />;
+        return <PageWrapper><Integrations /></PageWrapper>;
       case "users":
         if (user.role !== "admin") {
           setCurrentPage("dashboard");
-          return <Dashboard onSelectClient={setSelectedClient} />;
+          return <PageWrapper><Dashboard onSelectClient={setSelectedClient} /></PageWrapper>;
         }
-        return <Users />;
+        return <PageWrapper><Users /></PageWrapper>;
       case "settings":
-        return <Settings />;
+        return <PageWrapper><Settings /></PageWrapper>;
       case "profile":
-        return <Profile />;
+        return <PageWrapper><Profile /></PageWrapper>;
       case "notifications":
-        return <Notifications onNavigate={setCurrentPage} />;
+        return <PageWrapper><Notifications onNavigate={setCurrentPage} /></PageWrapper>;
       default:
         return (
           <div className="flex-1 flex flex-col items-center justify-center text-text-sec space-y-4">

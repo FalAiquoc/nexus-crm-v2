@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Palette, CheckCircle2, Briefcase, Scissors, Scale, Building2, Monitor, Sidebar as SidebarIcon, Frame, Database, Trash2, PlayCircle, AlertTriangle } from 'lucide-react';
+import { WhatsAppBlacklist } from '../components/WhatsAppBlacklist';
+import { Settings as SettingsIcon, Palette, CheckCircle2, Briefcase, Scissors, Scale, Building2, Monitor, Sidebar as SidebarIcon, Frame, Database, Trash2, PlayCircle, AlertTriangle, Shield } from 'lucide-react';
 import { MockupGenerator } from '../components/MockupGenerator';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -283,6 +284,9 @@ export function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Privacidade & Blacklist */}
+      <WhatsAppBlacklist />
 
       {/* Admin Controls - Simulation */}
       {user?.role === 'admin' && (

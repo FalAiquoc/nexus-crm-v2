@@ -11,11 +11,16 @@ dns.setDefaultResultOrder('ipv4first');
 console.log('🔗 Iniciando Banco de Dados (Modo Resiliente)');
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-export let isSimulatedMode = false;
+export let isSimulatedMode = IS_PRODUCTION ? false : (process.env.ALLOW_SIMULATED_MODE === 'true');
 
 export const setSimulatedMode = (mode: boolean) => {
-  // Proibir modo simulado em produção para evitar poluição de dados fakes
-  isSimulatedMode = IS_PRODUCTION ? false : mode;
+  // Em produção, a simulação é terminantemente bloqueada independentemente de .env
+  if (IS_PRODUCTION) {
+    console.warn('⚠️ [DATABASE] MODO SIMULADO PROIBIDO EM PRODUÇÃO. Operando apenas em Postgres.');
+    isSimulatedMode = false;
+    return;
+  }
+  isSimulatedMode = mode;
   console.log(isSimulatedMode ? '🧪 [DATABASE] MANUAL OVERRIDE: MODO SIMULADO LIGADO!' : '🌍 [DATABASE] MANUAL OVERRIDE: MODO REAL LIGADO!');
 };
 
@@ -23,7 +28,8 @@ if (!process.env.DATABASE_URL && !IS_PRODUCTION) {
   console.warn('⚠️ AVISO: DATABASE_URL não definida! O sistema entrará em Modo Simulado.');
   isSimulatedMode = true;
 } else if (!process.env.DATABASE_URL && IS_PRODUCTION) {
-  console.error('❌ ERRO CRÍTICO: DATABASE_URL ausente em PRODUÇÃO! O sistema poderá falhar.');
+  console.error('❌ ERRO CRÍTICO: DATABASE_URL ausente em PRODUÇÃO! O sistema VAI falhar.');
+  isSimulatedMode = false;
 }
 
 const dbConfig: any = {
@@ -77,7 +83,7 @@ const MOCK_DATA: any = {
     {
       id: '1',
       name: 'Boas-vindas Novos Leads (Simulado)',
-      trigger_name: 'Lead Criado',
+      trigger: 'Lead Criado',
       status: 'active',
       last_run: '2026-04-07T10:00:00Z',
       steps: JSON.stringify([
@@ -91,7 +97,7 @@ const MOCK_DATA: any = {
     {
       id: '2',
       name: 'Follow-up após 2 dias (Simulado)',
-      trigger_name: 'Lead Criado',
+      trigger: 'Lead Criado',
       status: 'active',
       last_run: '2026-04-08T14:00:00Z',
       steps: JSON.stringify([
@@ -117,11 +123,15 @@ try {
       // Não forçamos isSimulatedMode = true aqui para permitir reconexão automática do pool
     });
   } else {
-    isSimulatedMode = true;
-    console.warn('🧪 [DATABASE] Iniciando em MODO SIMULADO (Sem DATABASE_URL)');
+    if (!IS_PRODUCTION) {
+      isSimulatedMode = true;
+      console.warn('🧪 [DATABASE] Iniciando em MODO SIMULADO (Sem DATABASE_URL)');
+    } else {
+      console.error('❌ [DATABASE] Inicialização em Produção falhou: DATABASE_URL faltando.');
+    }
   }
 } catch (e) {
-  isSimulatedMode = true;
+  if (!IS_PRODUCTION) isSimulatedMode = true;
 }
 
 const db: any = {};
@@ -137,6 +147,7 @@ db.query = async (sql: string, params: any[] = []) => {
     return await pool.query(sql, params);
   } catch (err: any) {
     console.error(`🔥 Erro na query SQL: ${err.message}`);
+    if (IS_PRODUCTION) throw err;
     return { rows: [] };
   }
 };
@@ -156,6 +167,7 @@ db.prepare = (sql: string) => ({
       return res.rows[0];
     } catch (err: any) {
       console.error(`🔥 [DB_GET_ERROR] ${err.message} | SQL: ${sql}`);
+      if (IS_PRODUCTION) throw err;
       return null;
     }
   },
@@ -185,6 +197,7 @@ db.prepare = (sql: string) => ({
       return res.rows;
     } catch (err: any) {
       console.error(`🔥 [DB_ALL_ERROR] ${err.message} | SQL: ${sql}`);
+      if (IS_PRODUCTION) throw err;
       return [];
     }
   },
@@ -208,7 +221,7 @@ db.prepare = (sql: string) => ({
         MOCK_DATA.automation_rules.push({
           id,
           name,
-          trigger_name: trigger,
+          trigger: trigger,
           status,
           steps,
           user_id,
@@ -262,7 +275,7 @@ db.prepare = (sql: string) => ({
           MOCK_DATA.automation_rules[idx] = {
             ...MOCK_DATA.automation_rules[idx],
             name,
-            trigger_name: trigger,
+            trigger: trigger,
             status,
             steps
           };
@@ -329,6 +342,7 @@ db.prepare = (sql: string) => ({
       return await pool.query(pgSql, params);
     } catch (err: any) {
       console.error(`🔥 [DB_RUN_ERROR] ${err.message} | SQL: ${sql}`);
+      if (IS_PRODUCTION) throw err;
       return { rowCount: 0 };
     }
   }
@@ -340,6 +354,7 @@ db.exec = async (sql: string) => {
     await pool.query(sql);
   } catch (e: any) {
     console.error(`🔥 [DB_EXEC_ERROR] ${e.message}`);
+    if (IS_PRODUCTION) throw e;
   }
 };
 

@@ -1,5 +1,5 @@
-# Dockerfile para Nexus CRM v2 (Homologado para Node.js v18)
-FROM node:18-alpine
+# Dockerfile para Nexus CRM v2 (Node.js v20 - Requerido pelo @google/genai)
+FROM node:20-alpine
 
 # Criar diretório de trabalho
 WORKDIR /app

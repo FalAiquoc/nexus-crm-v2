@@ -27,12 +27,22 @@ interface CreateInstancePayload {
   token?: string;
   qrcode?: boolean;
   integration?: string;
+  reject_call?: boolean;
+  groups_ignore?: boolean;
+  always_online?: boolean;
+  read_messages?: boolean;
+  read_status?: boolean;
+  sync_full_history?: boolean;
 }
 
 interface WebhookConfig {
-  url: string;
-  events?: string[];
-  enabled?: boolean;
+  webhook: {
+    enabled: boolean;
+    url: string;
+    events?: string[];
+    webhook_by_events?: boolean;
+    webhook_base64?: boolean;
+  };
 }
 
 export class EvolutionService {
@@ -76,6 +86,7 @@ export class EvolutionService {
 
   /**
    * Cria uma nova instância WhatsApp
+   * Formato validado para Evolution API v2.1.1
    */
   async createInstance(payload: CreateInstancePayload): Promise<any> {
     const response = await fetch(`${this.config.apiUrl}/instance/create`, {
@@ -88,13 +99,19 @@ export class EvolutionService {
         instanceName: payload.instanceName,
         token: payload.token || payload.instanceName,
         qrcode: payload.qrcode !== false,
-        integration: payload.integration || 'WHATSAPP-BAILEYS'
+        integration: payload.integration || 'WHATSAPP-BAILEYS',
+        reject_call: payload.reject_call ?? false,
+        groups_ignore: payload.groups_ignore ?? false,
+        always_online: payload.always_online ?? true,
+        read_messages: payload.read_messages ?? true,
+        read_status: payload.read_status ?? false,
+        sync_full_history: payload.sync_full_history ?? false
       })
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Falha ao criar instância');
+      throw new Error(error.response?.message?.join(', ') || error.message || 'Falha ao criar instância');
     }
 
     return response.json();
@@ -281,6 +298,7 @@ export class EvolutionService {
 
   /**
    * Configura webhook de uma instância
+   * Formato validado para Evolution API v2.1.1
    */
   async setWebhook(instanceName: string, config: WebhookConfig): Promise<any> {
     const response = await fetch(`${this.config.apiUrl}/webhook/set/${instanceName}`, {
@@ -290,22 +308,24 @@ export class EvolutionService {
         'apikey': this.config.globalApiKey
       },
       body: JSON.stringify({
-        url: config.url,
-        enabled: config.enabled !== false,
-        events: config.events || [
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE',
-          'MESSAGES_DELETE',
-          'SEND_MESSAGE',
-          'CONTACTS_UPSERT',
-          'CONNECTION_UPDATE'
-        ]
+        webhook: {
+          enabled: config.webhook.enabled !== false,
+          url: config.webhook.url,
+          events: config.webhook.events || [
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'CONNECTION_UPDATE',
+            'SEND_MESSAGE'
+          ],
+          webhook_by_events: config.webhook.webhook_by_events ?? false,
+          webhook_base64: config.webhook.webhook_base64 ?? false
+        }
       })
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Falha ao configurar webhook');
+      throw new Error(error.response?.message?.join(', ') || error.message || 'Falha ao configurar webhook');
     }
 
     return response.json();

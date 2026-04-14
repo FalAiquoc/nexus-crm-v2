@@ -20,7 +20,7 @@ export interface WorkflowStep {
 export interface AutomationRule {
   id: string;
   name: string;
-  trigger_name: string;
+  trigger: string;
   status: 'active' | 'paused';
   steps: WorkflowStep[];
   user_id: string;
@@ -403,7 +403,7 @@ export class AutomationEngine {
     if (!lead) return;
 
     const rules = await db.prepare(
-      `SELECT * FROM automation_rules WHERE trigger_name LIKE '%Lead Criado%' OR trigger_name LIKE '%Novo Lead%' AND status = 'active'`
+      `SELECT * FROM automation_rules WHERE "trigger" LIKE '%Lead Criado%' OR "trigger" LIKE '%Novo Lead%' AND status = 'active'`
     ).all();
 
     for (const rule of rules) {
@@ -420,7 +420,7 @@ export class AutomationEngine {
    */
   async triggerWhatsAppMessageReceived(instanceName: string, phoneNumber: string, message: string): Promise<void> {
     const rules = await db.prepare(
-      `SELECT * FROM automation_rules WHERE trigger_name LIKE '%WhatsApp%' OR trigger_name LIKE '%Mensagem Recebida%' AND status = 'active'`
+      `SELECT * FROM automation_rules WHERE "trigger" LIKE '%WhatsApp%' OR "trigger" LIKE '%Mensagem Recebida%' AND status = 'active'`
     ).all();
 
     for (const rule of rules) {
@@ -441,7 +441,7 @@ export class AutomationEngine {
     if (!lead) return;
 
     const rules = await db.prepare(
-      `SELECT * FROM automation_rules WHERE trigger_name LIKE '%Status%' AND status = 'active'`
+      `SELECT * FROM automation_rules WHERE "trigger" LIKE '%Status%' AND status = 'active'`
     ).all();
 
     for (const rule of rules) {

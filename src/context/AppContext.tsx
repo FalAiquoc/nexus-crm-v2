@@ -49,7 +49,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [isSimulatedMode, setIsSimulatedMode] = useState(false);
+  const [isSimulatedMode, setIsSimulatedMode] = useState(() => {
+    // Persistir modo de simulação no localStorage para sobreviver F5
+    const saved = localStorage.getItem('doboy_simulated_mode');
+    return saved === 'true';
+  });
 
   const refreshData = async () => {
     const token = localStorage.getItem('doboy_token');
@@ -58,12 +62,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let backendResponding = false;
+
     try {
       // System Status (Simulação Ativa?)
-      const statusRes = await fetch('/api/system/status');
+      const statusRes = await fetch('/api/system/status', {
+        // Timeout de 5s para não travar indefinidamente
+        signal: AbortSignal.timeout(5000)
+      });
       if (statusRes.ok) {
-        const { isSimulatedMode } = await statusRes.json();
-        setIsSimulatedMode(isSimulatedMode);
+        const { isSimulatedMode: serverMode } = await statusRes.json();
+        setIsSimulatedMode(serverMode);
+        localStorage.setItem('doboy_simulated_mode', String(serverMode));
+        backendResponding = true;
       }
 
       // Fetch User
@@ -72,6 +83,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       if (userRes.ok) {
         setUser(await userRes.json());
+        backendResponding = true;
       } else {
         setUser(null);
       }
@@ -116,7 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const pipeRes = await fetch('/api/pipelines', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       let pipes = [];
       if (pipeRes.ok) {
         pipes = await pipeRes.json();
@@ -142,11 +154,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
     } catch (err) {
-      console.error('Error refreshing data:', err);
-      // Ensure we don't leave undefined states
-      setClients([]);
-      setPipelines([]);
-      setStages([]);
+      console.error('⚠️ Backend não respondeu. Ativando modo fallback:', err);
+      // Se o backend não responde, assumir modo simulado para manter UX
+      if (!backendResponding) {
+        setIsSimulatedMode(true);
+        localStorage.setItem('doboy_simulated_mode', 'true');
+      }
+      // Não limpa os dados - mantém estado anterior
     } finally {
       setIsLoading(false);
     }
@@ -171,7 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await fetch(`/api/leads/${updatedClient.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -188,7 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await fetch(`/api/leads/${id}`, {
         method: 'DELETE',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`
         }
       });
@@ -203,7 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await fetch(`/api/settings/${key}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },

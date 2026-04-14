@@ -16,7 +16,8 @@ import {
   X,
   Monitor,
   PanelLeftClose,
-  MessageCircle
+  MessageCircle,
+  Bot
 } from 'lucide-react';
 import { Page } from '../types';
 
@@ -91,6 +92,7 @@ export function Sidebar({
     { id: 'form', label: workspaceType === 'barbershop' ? 'Novo Cliente' : 'Novo Lead', icon: UserPlus, show: true },
     { id: 'contacts', label: 'Contatos', icon: Users, show: true },
     { id: 'automation', label: 'Automação', icon: Zap, show: true },
+    { id: 'agents', label: 'Agentes IA', icon: Bot, show: true },
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, show: true },
     { id: 'analytics', label: 'Relatórios', icon: BarChart3, show: true },
     { id: 'integrations', label: 'Integrações', icon: Link2, show: true },

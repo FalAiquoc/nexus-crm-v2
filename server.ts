@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import path from "path";
 import db, { initializeDatabase, isSimulatedMode } from "./server/db";
 import { comparePassword, generateToken, verifyToken } from "./server/auth";
@@ -20,8 +21,14 @@ async function startServer() {
   // Ensure DB is ready
   await initializeDatabase();
 
+  // Executa Migrações Internas (Blacklist e Tags)
+  await runAutoMigrations();
+
   const app = express();
   const PORT = process.env.PORT || 3001;
+
+  // Compressão Gzip/Brotli para todos os responses (~70% redução no transfer)
+  app.use(compression());
 
   app.use(express.json());
 
@@ -791,6 +798,49 @@ async function startServer() {
     }
   });
 
+  // ==========================================
+  // WHATSAPP BLACKLIST ROUTES
+  // ==========================================
+
+  // Listar números na blacklist
+  app.get("/api/settings/blacklist", authenticate, async (req, res) => {
+    try {
+      const list = await db.prepare("SELECT * FROM whatsapp_blacklist ORDER BY created_at DESC").all();
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Adicionar número à blacklist
+  app.post("/api/settings/blacklist", authenticate, async (req, res) => {
+    const { phone_number, description } = req.body;
+    if (!phone_number) return res.status(400).json({ error: "Número obrigatório" });
+    
+    try {
+      // Limpa o número (remove +, espaços, etc)
+      const cleanPhone = phone_number.replace(/\D/g, '');
+      await db.prepare(
+        "INSERT INTO whatsapp_blacklist (phone_number, description) VALUES ($1, $2) ON CONFLICT (phone_number) DO UPDATE SET description = $2"
+      ).run(cleanPhone, description || 'Cadastrado via API');
+      
+      res.json({ success: true, message: `Número ${cleanPhone} bloqueado.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Remover número da blacklist
+  app.delete("/api/settings/blacklist/:phone", authenticate, async (req, res) => {
+    const { phone } = req.params;
+    try {
+      await db.prepare("DELETE FROM whatsapp_blacklist WHERE phone_number = ?").run(phone);
+      res.json({ success: true, message: "Número removido da blacklist." });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Logs de automação
   app.get("/api/automation/logs", authenticate, async (req, res) => {
     const { automation_id, limit = 50 } = req.query;
@@ -829,7 +879,19 @@ async function startServer() {
       const body = req.body;
       console.log('📥 [WEBHOOK] Mensagem recebida da Evolution API:', JSON.stringify(body, null, 2));
 
-      // MESSAGES_UPSERT - Nova mensagem recebida
+      // 1. Filtro de Blacklist (Ignora contatos pessoais antes de qualquer processamento)
+      if (body.event === 'MESSAGES_UPSERT' && body.data) {
+        const phoneNumber = body.data.key?.remoteJid?.replace('@s.whatsapp.net', '');
+        
+        // Verifica se o número está na blacklist
+        const isBlacklisted = await db.prepare("SELECT 1 FROM whatsapp_blacklist WHERE phone_number = ?").get(phoneNumber);
+        if (isBlacklisted) {
+          console.log(`🚫 [BLACKLIST] Mensagem de ${phoneNumber} ignorada automaticamente.`);
+          return res.json({ success: true, status: 'ignored_by_blacklist' });
+        }
+      }
+
+      // 2. MESSAGES_UPSERT - Nova mensagem recebida
       if (body.event === 'MESSAGES_UPSERT' && body.data) {
         const message = body.data;
         const instanceName = message.key?.instanceName;
@@ -839,11 +901,41 @@ async function startServer() {
         console.log(`💬 [WHATSAPP] Mensagem de ${phoneNumber}: ${messageText}`);
 
         // Salva mensagem no banco
+        const instanceRecord = await db.prepare("SELECT id FROM whatsapp_instances WHERE instance_name = ?").get(instanceName);
+        const resolvedInstanceId = instanceRecord ? instanceRecord.id : null;
+
         const msgId = Math.random().toString(36).substr(2, 9);
         await db.prepare(
           `INSERT INTO whatsapp_messages (id, instance_id, direction, phone_number, message_type, content, metadata, created_at)
            VALUES ($1, $2, 'inbound', $3, 'text', $4, $5, $6)`
-        ).run(msgId, instanceName, phoneNumber, messageText, JSON.stringify(message), new Date().toISOString());
+        ).run(msgId, resolvedInstanceId, phoneNumber, messageText, JSON.stringify(message), new Date().toISOString());
+
+        // 3. Tagueamento Automático como #cliente
+        // Verifica se o lead existe, senão cria com a tag
+        const existingLead = await db.prepare("SELECT id, custom_fields FROM leads WHERE phone = ?").get(phoneNumber);
+        
+        if (!existingLead) {
+          const leadId = Math.random().toString(36).substr(2, 9);
+          const initialCustomFields = JSON.stringify({ tags: ["#cliente"] });
+          await db.prepare(
+            "INSERT INTO leads (id, name, phone, status, custom_fields, created_at) VALUES ($1, $2, $3, $4, $5, $6)"
+          ).run(leadId, phoneNumber, phoneNumber, 'Novo Lead', initialCustomFields, new Date().toISOString());
+          console.log(`🏷️ [AUTO-TAG] Novo lead criado e tagueado como #cliente: ${phoneNumber}`);
+        } else {
+          // Atualiza tags se ainda não tiver
+          let customFields = typeof existingLead.custom_fields === 'string' 
+            ? JSON.parse(existingLead.custom_fields) 
+            : (existingLead.custom_fields || {});
+          
+          if (!customFields.tags) customFields.tags = [];
+          if (!customFields.tags.includes("#cliente")) {
+            customFields.tags.push("#cliente");
+            await db.prepare(
+              "UPDATE leads SET custom_fields = $1 WHERE id = $2"
+            ).run(JSON.stringify(customFields), existingLead.id);
+            console.log(`🏷️ [AUTO-TAG] Lead existente tagueado como #cliente: ${phoneNumber}`);
+          }
+        }
 
         // Dispara automações
         await automationEngine.triggerWhatsAppMessageReceived(instanceName, phoneNumber, messageText);
@@ -892,6 +984,41 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+}
+
+/**
+ * Inicializa migrações de banco de dados necessárias para novas features
+ */
+async function runAutoMigrations() {
+  console.log('🔄 Executando Migrações Automáticas...');
+  try {
+    // 1. Criar tabela de Blacklist se não existir
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS whatsapp_blacklist (
+          phone_number TEXT PRIMARY KEY,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabela whatsapp_blacklist verificada/criada.');
+
+    // 2. Adicionar tag #cliente em massa para leads existentes
+    // Compatível com JSONB do Postgres no db.ts
+    if (!isSimulatedMode) {
+      await db.exec(`
+        UPDATE leads 
+        SET custom_fields = jsonb_set(
+            COALESCE(custom_fields, '{}'::jsonb), 
+            '{tags}', 
+            COALESCE(custom_fields->'tags', '[]'::jsonb) || '["#cliente"]'::jsonb
+        )
+        WHERE NOT (custom_fields ? 'tags' AND custom_fields->'tags' @> '[\"#cliente\"]'::jsonb);
+      `);
+      console.log('✅ Tagueamento retroativo #cliente concluído.');
+    }
+  } catch (error) {
+    console.error('❌ Erro durante migrações automáticas:', error);
+  }
 }
 
 startServer();
